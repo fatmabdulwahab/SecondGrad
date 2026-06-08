@@ -2,18 +2,11 @@ package com.example.secondgrad.screens.scoffold
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondgrad.RecognizeRequest
-import com.example.secondgrad.RetrofitInstance
-import com.example.secondgrad.SignViewModel
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class HandLandmarkerHelper(
     private val context: Context,
@@ -22,12 +15,12 @@ class HandLandmarkerHelper(
 ) {
 
     private var handLandmarker: HandLandmarker? = null
-    var sessionId: String? = null // 👈 جعلناه public عشان الـ UI يقدر يقرأه عند إنهاء الجلسة
     private var lastSentTime = 0L
 
     fun setupHandLandmarker(): Boolean {
         return try {
-            context.assets.open("hand_landmarker.task").close()
+            val assetInputStream = context.assets.open("hand_landmarker.task")
+            assetInputStream.close()
 
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("hand_landmarker.task")
@@ -45,12 +38,23 @@ class HandLandmarkerHelper(
             Log.d("HAND", "landmarker created = ${handLandmarker != null}")
 
             handLandmarker != null
-        } catch (e: Exception) {
-            Log.e("HAND_FATAL", e.message.toString())
+        } catch (throwable: Throwable) {
+            Log.e("HAND_FATAL", throwable.message.toString())
+            handLandmarker = null
             false
         }
     }
+
     fun getHandLandmarker(): HandLandmarker? = handLandmarker
+
+    fun close() {
+        try {
+            handLandmarker?.close()
+        } catch (throwable: Throwable) {
+            Log.e("HAND_CLOSE_ERROR", throwable.message.toString())
+        }
+        handLandmarker = null
+    }
 
 
 

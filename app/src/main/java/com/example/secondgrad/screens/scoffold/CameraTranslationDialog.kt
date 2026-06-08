@@ -52,6 +52,15 @@ fun CameraTranslationDialog(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    fun hasHandModelAsset(): Boolean {
+        return try {
+            val inputStream = context.assets.open("hand_landmarker.task")
+            inputStream.close()
+            true
+        } catch (throwable: Throwable) {
+            false
+        }
+    }
 
     LaunchedEffect(sessionId) {
         if (sessionId.length > 0) {
@@ -322,6 +331,15 @@ fun CameraTranslationDialog(
                                     Button(
                                         onClick = {
                                             scope.launch {
+                                                if (!hasHandModelAsset()) {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "ملف hand_landmarker.task غير موجود داخل assets",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                    cameraUiState = CameraUiState.Initial
+                                                    return@launch
+                                                }
 
                                                 cameraUiState = CameraUiState.CreatingSession
 

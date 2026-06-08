@@ -12,6 +12,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
@@ -30,6 +31,7 @@ fun CameraPreview(
     val cameraExecutor = remember {
         Executors.newSingleThreadExecutor()
     }
+    val isHandReady = remember { mutableStateOf(false) }
 
     val handLandmarkerHelper = remember(signViewModel) {
         HandLandmarkerHelper(
@@ -48,6 +50,7 @@ fun CameraPreview(
 
     LaunchedEffect(Unit) {
         val isReady = handLandmarkerHelper.setupHandLandmarker()
+        isHandReady.value = isReady
         if (!isReady) {
             onError("ملف تشغيل الكاميرا غير موجود أو غير صالح")
         }
@@ -55,8 +58,13 @@ fun CameraPreview(
 
     DisposableEffect(Unit) {
         onDispose {
+            handLandmarkerHelper.close()
             cameraExecutor.shutdown()
         }
+    }
+
+    if (!isHandReady.value) {
+        return
     }
 
     AndroidView(
@@ -87,6 +95,11 @@ fun CameraPreview(
                         cameraExecutor
                     ) { imageProxy ->
                         try {
+                            val handLandmarker = handLandmarkerHelper.getHandLandmarker()
+                            if (handLandmarker == null) {
+                                return@setAnalyzer
+                            }
+
                             val bitmap =
                                 imageProxy.toBitmap()
 
@@ -96,14 +109,12 @@ fun CameraPreview(
                             val frameTime =
                                 System.currentTimeMillis()
 
-                            handLandmarkerHelper
-                                .getHandLandmarker()
-                                ?.detectAsync(
-                                    mpImage,
-                                    frameTime
-                                )
-                        } catch (e: Exception) {
-                            Log.e("CAMERA_ANALYZER_ERROR", e.message.toString())
+                            handLandmarker.detectAsync(
+                                mpImage,
+                                frameTime
+                            )
+                        } catch (throwable: Throwable) {
+                            Log.e("CAMERA_ANALYZER_ERROR", throwable.message.toString())
                         } finally {
                             imageProxy.close()
                         }
@@ -134,8 +145,8 @@ fun CameraPreview(
                         preview,
                         imageAnalysis
                     )
-                } catch (e: Exception) {
-                    Log.e("CAMERA_BIND_ERROR", e.message.toString())
+                } catch (throwable: Throwable) {
+                    Log.e("CAMERA_BIND_ERROR", throwable.message.toString())
                     onError("مش قادرين نشغل الكاميرا على الجهاز ده")
                 }
 
