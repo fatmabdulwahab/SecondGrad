@@ -35,15 +35,26 @@ fun SearchSection(viewModel: RouteViewModel) {
     val toText by viewModel.toText.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val isVoiceSending by viewModel.isVoiceSending.collectAsState()
+    val voiceMessage by viewModel.voiceMessage.collectAsState()
 
     // فقط بنراقب الديالوج يفتح ولا يقفل
     var isCameraActive by remember { mutableStateOf(false) }
+    var isVoiceActive by remember { mutableStateOf(false) }
     val activity = LocalContext.current as ComponentActivity
     val context = LocalContext.current
+
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(voiceMessage) {
+        voiceMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearVoiceMessage()
         }
     }
 
@@ -61,7 +72,7 @@ fun SearchSection(viewModel: RouteViewModel) {
             modifier = Modifier.padding(top = 7.dp)
         ) {
             Text(
-                text = "SEARCH BY VOICE & SIGN",
+                text = if (isVoiceActive) "SEARCH BY VOICE" else "SEARCH BY VOICE & SIGN",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF077C32),
@@ -74,11 +85,19 @@ fun SearchSection(viewModel: RouteViewModel) {
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // استدعاء شريط الصوت والكاميرا وربطه بالـ State
-        VoiceCameraSearch(
-            onMicClick = { /* سنضيفها لاحقاً */ },
-            onCameraGranted = { isCameraActive = true }
-        )
+        if (isVoiceActive) {
+            VoiceRecorderPanel(
+                isSending = isVoiceSending,
+                onSendVoice = viewModel::sendVoice,
+                onCameraClick = { isCameraActive = true }
+            )
+        } else {
+            // استدعاء شريط الصوت والكاميرا وربطه بالـ State
+            VoiceCameraSearch(
+                onMicClick = { isVoiceActive = true },
+                onCameraGranted = { isCameraActive = true }
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 

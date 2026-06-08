@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 class RouteViewModel : ViewModel() {
 
@@ -24,6 +25,12 @@ class RouteViewModel : ViewModel() {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage = _errorMessage.asStateFlow()
+
+    private val _isVoiceSending = MutableStateFlow(false)
+    val isVoiceSending = _isVoiceSending.asStateFlow()
+
+    private val _voiceMessage = MutableStateFlow<String?>(null)
+    val voiceMessage = _voiceMessage.asStateFlow()
 
     fun onFromTextChange(value: String) {
         _fromText.value = value
@@ -69,5 +76,29 @@ class RouteViewModel : ViewModel() {
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    fun sendVoice(file: File) {
+        viewModelScope.launch {
+            _isVoiceSending.value = true
+            _voiceMessage.value = null
+            _errorMessage.value = null
+
+            runCatching {
+                repository.sendVoice(file)
+            }.onSuccess { response ->
+                _voiceMessage.value = response.message
+                    ?: response.status
+                    ?: "تم إرسال الصوت بنجاح"
+            }.onFailure { throwable ->
+                _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
+            }
+
+            _isVoiceSending.value = false
+        }
+    }
+
+    fun clearVoiceMessage() {
+        _voiceMessage.value = null
     }
 }
