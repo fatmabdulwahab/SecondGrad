@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.Train
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -248,6 +249,23 @@ private fun LocationLabel(
 
 @Composable
 private fun SegmentCard(segment: RouteDetail) {
+    val isMetro = isMetroRoute(segment.routeName)
+    val vehicleText = if (isMetro) {
+        " :هتركب مترو"
+    } else {
+        " :هتركب باص"
+    }
+    val vehicleColor = if (isMetro) {
+        Color(0xFF0F766E)
+    } else {
+        Color(0xFFFF7A00)
+    }
+    val vehicleBackground = if (isMetro) {
+        Color(0x1F0F766E)
+    } else {
+        Color(0xFFFFF4E6)
+    }
+
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -266,7 +284,7 @@ private fun SegmentCard(segment: RouteDetail) {
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(5.dp)
-                    .background(Color(0xFFFF7A00))
+                    .background(vehicleColor)
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -275,13 +293,13 @@ private fun SegmentCard(segment: RouteDetail) {
                 modifier = Modifier
                     .size(34.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFFFFF4E6)),
+                    .background(vehicleBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.DirectionsBus,
+                    imageVector = if (isMetro) Icons.Default.Train else Icons.Default.DirectionsBus,
                     contentDescription = null,
-                    tint = Color(0xFFFF7A00),
+                    tint = vehicleColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -295,7 +313,7 @@ private fun SegmentCard(segment: RouteDetail) {
             ) {
                 Text(
                     text = segment.routeName,
-                    color = Color(0xFFFF7A00),
+                    color = vehicleColor,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -303,7 +321,7 @@ private fun SegmentCard(segment: RouteDetail) {
                 )
 
                 Text(
-                    text = " :هتركب",
+                    text = vehicleText,
                     color = Color(0xFF6B7280),
                     fontSize = 13.sp
                 )
@@ -446,6 +464,38 @@ private fun startsWithText(value: String, prefix: String): Boolean {
     }
 
     return true
+}
+
+private fun isMetroRoute(routeName: String): Boolean {
+    return hasTextPart(routeName, "الخط")
+}
+
+private fun hasTextPart(value: String, part: String): Boolean {
+    if (part.length == 0 || value.length < part.length) {
+        return false
+    }
+
+    var start = 0
+    while (start <= value.length - part.length) {
+        var offset = 0
+        var matched = true
+
+        while (offset < part.length) {
+            if (value[start + offset] != part[offset]) {
+                matched = false
+                break
+            }
+            offset++
+        }
+
+        if (matched) {
+            return true
+        }
+
+        start++
+    }
+
+    return false
 }
 
 private fun gradientColors(): java.util.ArrayList<Color> {
