@@ -28,13 +28,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController : NavController){
-/*
-    LaunchedEffect(Unit) {
-        delay(3000)
-        onTimeout()
-    }
 
- */
     LaunchedEffect(Unit) {
         delay(3000)
 
@@ -86,3 +80,10 @@ fun SplashScreen(navController : NavController){
 
 
 
+/*
+    LaunchedEffect(Unit) {
+        delay(3000)
+        onTimeout()
+    }
+
+ */

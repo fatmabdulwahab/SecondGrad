@@ -9,6 +9,11 @@ import androidx.navigation.compose.composable
 import com.example.secondgrad.screens.login.LoginScreen
 import com.example.secondgrad.screens.login.RegisterScreen
 import com.example.secondgrad.screens.login.SplashScreen
+import com.example.secondgrad.screens.scoffold.BusRoutesScreen
+import com.example.secondgrad.screens.scoffold.CommonQuestionScreen
+import com.example.secondgrad.screens.scoffold.ContactUs
+
+import com.example.secondgrad.screens.scoffold.HistoryScreen
 import com.example.secondgrad.screens.scoffold.ScaffoldScreen
 
 @Composable
@@ -35,7 +40,25 @@ fun NavigationGraph(navController: NavHostController){
             ScaffoldScreen(navController)
         }
 
+        composable("routes_screen") {
 
+            BusRoutesScreen()
+        }
+
+        composable("history_screen") {
+
+            HistoryScreen()
+        }
+
+        composable("commonquestionscreen") {
+
+            CommonQuestionScreen()
+        }
+       // the route
+        composable("contactus") {
+
+            ContactUs()
+        }
     }
 
     }

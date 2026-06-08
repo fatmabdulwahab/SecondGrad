@@ -3,16 +3,10 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
-
 android {
-    packaging {
-        jniLibs {
-
-            useLegacyPackaging = true
-        }
-    }
     namespace = "com.example.secondgrad"
     compileSdk = 36
+
 
     defaultConfig {
         applicationId = "com.example.secondgrad"
@@ -20,8 +14,21 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a" ,"x86_64")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+
+    }
+
+
+    // for mediapipe
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     buildTypes {
@@ -33,13 +40,19 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
+
     buildFeatures {
         compose = true
     }
@@ -48,24 +61,23 @@ android {
 dependencies {
 
 
-        // Retrofit
-        implementation("com.squareup.retrofit2:retrofit:2.9.0")
-        // GSON Converter (عشان يحول الـ JSON لـ Objects)
-        implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-       implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    // Api
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.places)
 
-    // Voice
-    implementation("androidx.core:core-ktx:1.13.1")
-// CameraX
-    implementation("androidx.camera:camera-camera2:1.3.4")
-    implementation("androidx.camera:camera-lifecycle:1.3.4")
-    implementation("androidx.camera:camera-view:1.3.4")
-// Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-// Retrofit (لو هتبعتي للباك)
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation ("androidx.compose.material:material-icons-extended")
+    val camerax_version = "1.3.4"
+
+    implementation("androidx.camera:camera-core:${camerax_version}")
+    implementation("androidx.camera:camera-camera2:${camerax_version}")
+    implementation("androidx.camera:camera-lifecycle:${camerax_version}")
+    implementation("androidx.camera:camera-view:${camerax_version}")
+// mediapipe
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
+
+    // Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -74,7 +86,14 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
+    // Android Core
+    implementation("androidx.core:core-ktx:1.13.1")
+
+    // Navigation
     implementation(libs.androidx.navigation.compose)
+
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

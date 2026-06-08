@@ -44,12 +44,12 @@ import com.example.secondgrad.screens.busCard.TimeAndCost
 import com.example.secondgrad.screens.busCard.VerticalLine
 
 @Composable
-
+@Preview(showSystemUi = true)
 fun MetroScreen( ) {
     Card(
         elevation = CardDefaults.cardElevation(10.dp),
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.padding(12.dp),
+        modifier = Modifier.padding(top = 50.dp , start = 12.dp,end = 12.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         )

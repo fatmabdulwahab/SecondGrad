@@ -1,5 +1,6 @@
 package com.example.secondgrad.screens.busCard
 
+import com.example.secondgrad.RouteViewModel
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import com.example.secondgrad.R
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,13 +19,21 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.common.util.CollectionUtils.listOf
 
 @Composable
-fun BusScreen() {
+fun BusScreen(viewModel: RouteViewModel ) {
 
+
+
+
+     val routes by viewModel.routes.collectAsState()// uidata
+    val fromText by viewModel.fromText.collectAsState()
+    val toText by viewModel.toText.collectAsState()
+     val route = routes.firstOrNull()
     Card(
         elevation = CardDefaults.cardElevation(10.dp),
         shape = RoundedCornerShape(16.dp),
@@ -59,7 +70,7 @@ fun BusScreen() {
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "Direct",
+                            text = route?.routeType ?: "",
                             color = Color(0xFF14793A),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -75,12 +86,38 @@ fun BusScreen() {
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        /*
+                       Row(verticalAlignment = Alignment.CenterVertically) {
+
+    segments.forEachIndexed { index, segment ->
+
+        ChipItem(
+            text = segment.routeName,
+            isSelected = index == 0
+        )
+
+        if (index != segments.lastIndex) {
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "<",
+                color = Color(0xFFFF7A00),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+}
+                         */
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-
-                            ChipItem("M20", false)
+                            //
+                            ChipItem(  route?.routeName ?: "", false)
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -92,8 +129,8 @@ fun BusScreen() {
                             )
 
                             Spacer(modifier = Modifier.width(8.dp))
-
-                            ChipItem("M5", true)
+                            //
+                            ChipItem(route?.routeName ?: "", true)
                         }
                     }
                 }
@@ -131,8 +168,9 @@ fun BusScreen() {
                             modifier = Modifier.align(Alignment.End)
                         )
 
+
                         Text(
-                            text = "جامعة القاهرة",
+                            text = fromText,
                             color = Color.Black,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -166,7 +204,7 @@ fun BusScreen() {
                                 ) {
 
                                     Text(
-                                        text = "M20",
+                                        text = route?.routeName?:"",
                                         color = Color(0xFFFF7A00),
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
@@ -227,9 +265,7 @@ fun BusScreen() {
                                 horizontalArrangement = Arrangement.End
                             ) {
 
-                                Column(
-                                    horizontalAlignment = Alignment.End
-                                ) {
+                                Column(horizontalAlignment = Alignment.End) {
 
                                     Text(
                                         text = ":هتحول فى ",
@@ -237,12 +273,15 @@ fun BusScreen() {
                                         fontSize = 11.sp
                                     )
 
-                                    Text(
-                                        text = "رمسيس",
-                                        color = Color.Black,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    route?.transferStations?.forEach { station ->
+
+                                        Text(
+                                            text = station,
+                                            color = Color.Black,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -293,12 +332,14 @@ fun BusScreen() {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
 
-                                    Text(
-                                        text = "M5",
-                                        color = Color(0xFFFF7A00),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    route?.routeName?.let {
+                                        Text(
+                                            text = it,
+                                            color = Color(0xFFFF7A00),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
 
                                     Text(
                                         text = " :هتركب",
@@ -345,7 +386,7 @@ fun BusScreen() {
                         )
 
                         Text(
-                            text = "فى التجمع الخامس",
+                            text =toText ,
                             color = Color.Black,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -386,10 +427,4 @@ fun BusScreen() {
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BusScreenPreview() {
-    BusScreen()
 }

@@ -1,46 +1,47 @@
 package com.example.secondgrad.screens.scoffold
 
+
+import android.annotation.SuppressLint
+import com.example.secondgrad.R
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.LifecycleOwner
-import com.example.secondgrad.R
+import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.text.input.KeyboardType
 
+@SuppressLint("ContextCastToActivity")
 @Composable
-fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
+fun SearchSection(context: Context ) {
 
-    var fromText by remember { mutableStateOf("") }
-    var toText by remember { mutableStateOf("") }
+//
+//    val fromText by viewModel.fromText.collectAsState()
+//    val toText by viewModel.toText.collectAsState()
 
+    // فقط بنراقب الديالوج يفتح ولا يقفل
+    var isCameraActive by remember { mutableStateOf(false) }
+    val activity = LocalContext.current as ComponentActivity
+    val context = LocalContext.current
+
+    //val viewModel: RouteViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     Column(
         modifier = Modifier
             .fillMaxWidth(0.96f)
@@ -55,7 +56,7 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
             modifier = Modifier.padding(top = 7.dp)
         ) {
             Text(
-                text = "SEARCH BY VOICE",
+                text = "SEARCH BY VOICE & SIGN",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF077C32),
@@ -68,24 +69,28 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
 
         Spacer(modifier = Modifier.height(2.dp))
 
+        // استدعاء شريط الصوت والكاميرا وربطه بالـ State
         VoiceCameraSearch(
-            onVoiceResult = { text ->
-                println("Voice: $text")
-            },
-            onOpenCamera = {
-                startCamera(
-                    context = context,
-                    lifecycleOwner = lifecycleOwner,
-                    onFrame = { frame ->
-                        sendFrameToServer(frame)
-                    }
-                )
-            }
+            onMicClick = { /* سنضيفها لاحقاً */ },
+            onCameraGranted = { isCameraActive = true }
         )
+
         Spacer(modifier = Modifier.height(4.dp))
 
-        Row(
+        // استدعاء الـ Dialog المنفصل هنا ونمرر له الأكشنز
+        if (isCameraActive) {
+            CameraTranslationDialog(
+                activity = activity,
+                onDismiss = { isCameraActive = false },
+                onSaveSuccess = {
+                    // الأكشن لما يضغط حفظ
+                    isCameraActive = false
+                }
+            )
+        }
 
+        // حقل نص (From)
+        Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
@@ -99,25 +104,31 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
             )
 
             OutlinedTextField(
-                value = fromText,
-                onValueChange = { fromText = it },
+                value =  "",
+                onValueChange = {   },
+
                 label = { Text("From") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text
+                ),
                 modifier = Modifier.weight(1f)
             )
         }
 
+        // السهم بين الحقلين
         Row(
-            modifier = Modifier.padding(start = 170.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.img_4),
                 contentDescription = "Arrow",
-                modifier = Modifier.size(50.dp)
+                modifier = Modifier.size(40.dp)
             )
         }
 
+        // حقل نص (To)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -132,56 +143,63 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
             )
 
             OutlinedTextField(
-                value = toText,
-                onValueChange = { toText = it },
+                value =  "",
+                onValueChange = {   },
                 label = { Text("To") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text
+                ),
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // Row الأزرار
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // الأزرار السفليّة (Search & Google Maps)
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
         ) {
 
-            Button(
+
+          //  val viewModel: RouteViewModel = viewModel()
+                  Button(
                 onClick = {
-                    // TODO: search action
+
+
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).width(130.dp).padding(start = 20.dp)
+                modifier = Modifier.height(40.dp).weight(1f)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_5),
                     contentDescription = null,
-                    modifier = Modifier.size(17.dp).padding(start = 1.dp)
+                    modifier = Modifier.size(17.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(text = "Search", color = Color.White, fontSize = 12.sp)
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
             Button(
                 onClick = {
-                    if (toText.isNotBlank()) {
-
-                        val gmmIntentUri = Uri.parse("geo:0,0?q=$toText")
-                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-
-                        mapIntent.setPackage("com.google.android.apps.maps")
-
-                        if (mapIntent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(mapIntent)
-                        }
-                    }
+//
+//                   val location = toText.ifBlank { fromText }
+//
+//                    if (location.isNotBlank()) {
+//
+//                        val intent = Intent(
+//                            Intent.ACTION_VIEW,
+//                            "geo:0,0?q=${Uri.encode(location)}".toUri()
+//                        )
+//
+//                        context.startActivity(intent)
+//                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).width(220.dp).padding(start = 12.dp)
+                modifier = Modifier.height(40.dp).weight(1.5f)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_7),
@@ -189,13 +207,12 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "Open in google maps", color = Color.White)
+                Text(text = "Open in google maps", color = Color.White, fontSize = 12.sp)
             }
         }
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // التنبيه على اليمين
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -209,6 +226,5 @@ fun SearchSection(context: Context, lifecycleOwner: LifecycleOwner) {
                 textAlign = TextAlign.Right
             )
         }
-
     }
 }

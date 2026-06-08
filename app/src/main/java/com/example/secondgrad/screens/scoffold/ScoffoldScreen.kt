@@ -1,5 +1,6 @@
 package com.example.secondgrad.screens.scoffold
 
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,171 +16,81 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.example.secondgrad.screens.FilterSection
-import com.example.secondgrad.screens.MetroScreen
 import com.example.secondgrad.screens.busCard.BusScreen
 import kotlinx.coroutines.launch
+import com.example.secondgrad.RouteViewModel
+import androidx.compose.runtime.collectAsState
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScaffoldScreen(navController: NavController) {
 
-    val drawerState = rememberDrawerState(
-        initialValue = DrawerValue.Closed
-    )
-
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val routeViewModel: RouteViewModel = viewModel()
+    val routes by routeViewModel.routes.collectAsState()
 
-    // الفلتر المختار
-    var selectedFilter by remember {
-        mutableStateOf("الكل")
-    }
-
-    // بيانات مؤقتة للـ UI
-    val routes = listOf(
-        "باص",
-        "مترو",
-        "باص"
-    )
-
-    // الفلترة
-    val filteredRoutes = when (selectedFilter) {
-
-        "الكل" -> routes
-
-        else -> routes.filter {
-            it == selectedFilter
-        }
-    }
+   var selectedFilter by remember { mutableStateOf("الكل") }
+//    val routes = listOf("باص", "مترو", "باص")
+//    val filteredRoutes = if (selectedFilter == "الكل") routes else routes.filter { it == selectedFilter }
 
     ModalNavigationDrawer(
-
         drawerState = drawerState,
-
         drawerContent = {
-
-            ModalDrawerSheet {
-
-                Text(
-                    text = "Menu",
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
+            // استدعاء الدالة الموحدة للقائمة الجانبية
+            AppDrawer(scope = scope, drawerState = drawerState,
+                navController = navController as NavHostController)
         }
-
     ) {
-
         Scaffold(
-
             topBar = {
-
                 CenterAlignedTopAppBar(
-
-                    title = {
-
-                        Text(
-                            text = "Home",
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-
+                    title = { Text(text = "Home", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
-
-                        IconButton(
-
-                            onClick = {
-
-                                scope.launch {
-                                    drawerState.open()
-                                }
-                            }
-
-                        ) {
-
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = null
-                            )
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(imageVector = Icons.Default.Menu, contentDescription = null)
                         }
                     }
                 )
             },
-
-            bottomBar = {
-                AppBottomBar()
-            }
-
+            bottomBar = { AppBottomBar() }
         ) { paddingValues ->
-
             Column(
-
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFF59B484))
                     .padding(paddingValues),
-
                 horizontalAlignment = Alignment.CenterHorizontally
-
             ) {
-
                 Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = "YOUR JOURNEY STARTS HERE",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
+                Text(text = "YOUR JOURNEY STARTS HERE", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // Search
-                SearchSection(
-                    context = context,
-                    lifecycleOwner = lifecycleOwner
-                )
-
+                SearchSection(context = context)
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // Filter
-                FilterSection(
-
-                    selected = selectedFilter,
-
-                    onSelectedChange = {
-                        selectedFilter = it
-                    }
-                )
-
+                FilterSection(selected = selectedFilter, onSelectedChange = { selectedFilter = it })
                 Spacer(modifier = Modifier.height(20.dp))
 
                 LazyColumn(
-
                     modifier = Modifier
                         .fillMaxWidth(0.96f)
                         .weight(1f),
-
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-
                     contentPadding = PaddingValues(bottom = 16.dp)
-
                 ) {
 
-                    items(filteredRoutes) { route ->
+                    items(routes) { route ->
 
-                        if (route == "باص") {
-
-                            BusScreen()
-
-                        } else {
-
-                            MetroScreen()
-                        }
+                        BusScreen(
+                            route = route,
+                            userLocation = "",
+                            destination = ""
+                        )
                     }
                 }
             }

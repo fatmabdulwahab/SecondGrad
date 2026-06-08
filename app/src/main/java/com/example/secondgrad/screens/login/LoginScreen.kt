@@ -1,40 +1,50 @@
 package com.example.secondgrad.screens.login
 
+
+import com.example.secondgrad.R
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.secondgrad.R
+
+
+
+/**
+ * تصميم السهم الصغير (Triangle) ليظهر أعلى الرسالة السوداء
+ */
+val TooltipShape = GenericShape { size, _ ->
+    val arrowWidth = 30f
+    val arrowHeight = 20f
+    val startX = 40f // موقع السهم من اليسار
+
+    moveTo(startX, 0f)
+    lineTo(startX + arrowWidth / 2, -arrowHeight)
+    lineTo(startX + arrowWidth, 0f)
+    addRoundRect(
+        androidx.compose.ui.geometry.RoundRect(
+            left = 0f,
+            top = 0f,
+            right = size.width,
+            bottom = size.height,
+            radiusX = 20f,
+            radiusY = 20f
+        )
+    )
+}
+
 @Composable
 fun LoginScreen(navController: NavController) {
 
@@ -44,127 +54,218 @@ fun LoginScreen(navController: NavController) {
     var emailError by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf("") }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorResource(id = R.color.background_green)),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Color(0xFF2E8B57))
     ) {
 
-        Image(
-            painter = painterResource(id = R.drawable.bus_logo),
-            contentDescription = "Logo",
-            modifier = Modifier.size(120.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Welcome Back",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        Text(
-            text = "Sign in to continue",
-            fontSize = 16.sp,
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(24.dp)
+                .align(Alignment.Center),
+            shape = RoundedCornerShape(25.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(8.dp)
         ) {
 
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // Email
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Image(
+                    painter = painterResource(id = R.drawable.bus_logo2),
+                    contentDescription = "Logo",
+                    modifier = Modifier.size(110.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "تسجيل الدخول",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF2E8B57)
+                )
+
+                Spacer(modifier = Modifier.height(30.dp))
+
+                // --- حقل الإيميل ---
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = {
+                        email = it
+                        emailError = ""
+                    },
                     label = { Text("Email") },
                     isError = emailError.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(30.dp)
                 )
+
+                // --- رسالة الخطأ السوداء (Tooltip) ---
                 if (emailError.isNotEmpty()) {
-                    Text(emailError, color = Color.Red, fontSize = 12.sp)
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    color = Color(0xFF333333), // اللون الأسود المطلوب
+                                    shape = TooltipShape
+                                )
+                                .padding(12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // المربع البرتقالي الصغير
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .background(Color(0xFFFF8C00), RoundedCornerShape(4.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("!", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Text(
+                                    text = emailError,
+                                    color = Color.White,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        // الرسالة الخضراء الشفافة بالأسفل
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                .background(Color(0xFF90EE90), RoundedCornerShape(12.dp))
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Email is invalid",
+                                color = Color(0xFF2E8B57),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Password
+                // --- حقل كلمة المرور ---
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = {
+                        password = it
+                        passwordError = ""
+                    },
                     label = { Text("Password") },
                     visualTransformation = PasswordVisualTransformation(),
                     isError = passwordError.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(30.dp)
                 )
+
+                // --- رسالة خطأ الباسورد (Invalid) باللون الأخضر الفاتح ---
                 if (passwordError.isNotEmpty()) {
-                    Text(passwordError, color = Color.Red, fontSize = 12.sp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .background(Color(0xFF90EE90), RoundedCornerShape(25.dp)) // خلفية خضراء فاتحة
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = passwordError, // ستظهر Invalid
+                            color = Color(0xFF2E8B57), // نص أخضر غامق
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Button
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    Text(
+                        text = "Forget Password ?",
+                        color = Color(0xFF2E8B57),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(25.dp))
+
+                // --- زر الإرسال ---
                 Button(
                     onClick = {
+                        emailError = when {
+                            email.isBlank() -> "email is required"
+                            !email.contains("@") -> "Please include '@' in the email."
+                            email.endsWith("@") || email.substringAfter("@").isBlank() ->
+                                "Please enter a part following '@'. '$email' is incomplete."
+                            else -> ""
+                        }
 
-                        emailError = if (email.isBlank()) "Email required" else ""
-                        passwordError =
-                            if (password.isBlank()) "Password required"
-                            else if (password.length < 6) "Min 6 characters"
-                            else ""
+                        passwordError = when {
+                            password.isBlank() -> "password is required"
+                            password.length < 5 -> "password is invalid"
+                            else -> ""
+                        }
 
-                        val isValid =
-                            emailError.isEmpty() && passwordError.isEmpty()
-
-                        if (isValid) {
+                        if (emailError.isEmpty() && passwordError.isEmpty()) {
                             navController.navigate("home") {
                                 popUpTo("login") { inclusive = true }
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00B55D)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(16.dp)
+
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57)),
+                    modifier = Modifier.fillMaxWidth(.5f),
+                    shape = RoundedCornerShape(30.dp)
                 ) {
-                    Text("Sign in",
-                        color = Color.White,
-                        modifier = Modifier.clickable {
-                            navController.navigate("home")
-                        }
-                    )
+                    Text(text = "Submit", color = Color.White, fontSize = 14.sp)
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                HorizontalDivider(modifier = Modifier.fillMaxWidth(0.8f), thickness = 1.dp)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row {
-                    Text("Don't have an account? ")
-
-                    Text(
-                        text = "Register Now",
-                        color = Color(0xFF00B55D),
-                        modifier = Modifier.clickable {
-                            navController.navigate("register")
-                        }
-                    )
+                OutlinedButton(
+                    onClick = { },
+                    modifier = Modifier.fillMaxWidth(0.8f).height(50.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Image(painter = painterResource(id = R.drawable.google), contentDescription = null, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تسجيل الدخول باستخدام Google")
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "I don't have an account",
+                    color = Color(0xFF2E8B57),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    modifier = Modifier.clickable { navController.navigate("register") }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     }
