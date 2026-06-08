@@ -2,7 +2,6 @@ package com.example.secondgrad
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import kotlin.jvm.java
 
 
 object RetrofitInstance {
@@ -18,5 +17,9 @@ object RetrofitInstance {
         )
         .build()
 
-    val api: SignApi = retrofit.create(SignApi::class.java)
+    @Suppress("UNCHECKED_CAST")
+    private val apiClass: Class<SignApi> =
+        Class.forName("com.example.secondgrad.SignApi") as Class<SignApi>
+
+    val api: SignApi = retrofit.create(apiClass)
 }
