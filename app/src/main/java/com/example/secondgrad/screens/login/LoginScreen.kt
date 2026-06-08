@@ -104,13 +104,13 @@ fun LoginScreen(navController: NavController) {
                         emailError = ""
                     },
                     label = { Text("Email") },
-                    isError = emailError.isNotEmpty(),
+                    isError = emailError.length > 0,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(30.dp)
                 )
 
                 // --- رسالة الخطأ السوداء (Tooltip) ---
-                if (emailError.isNotEmpty()) {
+                if (emailError.length > 0) {
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                         Box(
                             modifier = Modifier
@@ -172,13 +172,13 @@ fun LoginScreen(navController: NavController) {
                     },
                     label = { Text("Password") },
                     visualTransformation = PasswordVisualTransformation(),
-                    isError = passwordError.isNotEmpty(),
+                    isError = passwordError.length > 0,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(30.dp)
                 )
 
                 // --- رسالة خطأ الباسورد (Invalid) باللون الأخضر الفاتح ---
-                if (passwordError.isNotEmpty()) {
+                if (passwordError.length > 0) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
