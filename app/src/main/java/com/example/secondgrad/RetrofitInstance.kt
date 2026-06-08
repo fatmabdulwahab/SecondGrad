@@ -2,6 +2,7 @@ package com.example.secondgrad
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import kotlin.jvm.java
 
 
 object RetrofitInstance {
@@ -10,14 +11,12 @@ object RetrofitInstance {
         "https://amr-yasserr-arsl-fingerspelling-detector.hf.space/"
 
 
-    val api: SignApi by lazy {
+    private val retrofit: Retrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .addConverterFactory(
+            GsonConverterFactory.create()
+        )
+        .build()
 
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .addConverterFactory(
-                GsonConverterFactory.create()
-            )
-            .build()
-            .create(SignApi::class.java)
-    }
+    val api: SignApi = retrofit.create(SignApi::class.java)
 }
