@@ -187,10 +187,13 @@ fun CustomInputField(
 }
 
 private fun hasRegisterText(value: String): Boolean {
-    for (char in value) {
+    var index = 0
+    while (index < value.length) {
+        val char = value[index]
         if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
             return true
         }
+        index++
     }
     return false
 }
