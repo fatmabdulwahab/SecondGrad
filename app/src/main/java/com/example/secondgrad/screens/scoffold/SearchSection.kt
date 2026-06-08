@@ -45,15 +45,17 @@ fun SearchSection(viewModel: RouteViewModel) {
     val context = LocalContext.current
 
     LaunchedEffect(errorMessage) {
-        errorMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        val message = errorMessage
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearError()
         }
     }
 
     LaunchedEffect(voiceMessage) {
-        voiceMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        val message = voiceMessage
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearVoiceMessage()
         }
     }
@@ -217,7 +219,7 @@ fun SearchSection(viewModel: RouteViewModel) {
 
             Button(
                 onClick = {
-                    val location = toText.ifBlank { fromText }
+                    val location = if (toText.isBlank()) fromText else toText
 
                     if (location.isNotBlank()) {
                         val intent = Intent(
