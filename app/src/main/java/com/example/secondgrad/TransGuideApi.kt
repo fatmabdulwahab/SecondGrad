@@ -2,6 +2,7 @@ package com.example.secondgrad
 
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import com.google.gson.JsonElement
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -44,7 +45,7 @@ interface TransGuideApi {
     suspend fun deleteTrip(): Response<Unit>
 
     @GET("api/History/GetTripsCount")
-    suspend fun getTripsCount(): CountResponse
+    suspend fun getTripsCount(): JsonElement
 
     @POST("api/UserFeedback")
     suspend fun createFeedback(
@@ -52,7 +53,7 @@ interface TransGuideApi {
     ): FeedbackResponse
 
     @GET("api/UserFeedbacks/GetFeedbacksCount")
-    suspend fun getFeedbacksCount(): CountResponse
+    suspend fun getFeedbacksCount(): JsonElement
 
     @GET("api/UserFeedbacks/GetAllFeedbacks")
     suspend fun getAllFeedbacks(): ApiPage<FeedbackResponse>
@@ -95,7 +96,7 @@ interface TransGuideApi {
     ): ApiMessageResponse
 
     @GET("api/Auth/UsersCount")
-    suspend fun getUsersCount(): CountResponse
+    suspend fun getUsersCount(): JsonElement
 
     @GET("api/Notifications")
     suspend fun getUserNotifications(
@@ -111,7 +112,7 @@ interface TransGuideApi {
     suspend fun getUnreadNotifications(): ApiPage<NotificationResponse>
 
     @GET("api/Notifications/unread/count")
-    suspend fun getUnreadNotificationCount(): CountResponse
+    suspend fun getUnreadNotificationCount(): JsonElement
 
     @PATCH("api/Notifications/read-all")
     suspend fun markAllNotificationsAsRead(
@@ -149,7 +150,7 @@ interface TransGuideApi {
     @GET("api/Authorization/GetAllRoles")
     suspend fun getAllRoles(
         @Header("Authorization") authorization: String? = null
-    ): List<RoleResponse>
+    ): JsonElement
 
     @GET("api/Authorization/GetRole")
     suspend fun getRole(

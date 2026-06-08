@@ -12,6 +12,7 @@ import com.example.secondgrad.screens.login.SplashScreen
 import com.example.secondgrad.screens.scoffold.BusRoutesScreen
 import com.example.secondgrad.screens.scoffold.CommonQuestionScreen
 import com.example.secondgrad.screens.scoffold.ContactUs
+import com.example.secondgrad.screens.scoffold.DashboardScreen
 
 import com.example.secondgrad.screens.scoffold.HistoryScreen
 import com.example.secondgrad.screens.scoffold.ScaffoldScreen
@@ -38,6 +39,10 @@ fun NavigationGraph(navController: NavHostController){
 
         composable("home") {
             ScaffoldScreen(navController)
+        }
+
+        composable("dashboard") {
+            DashboardScreen()
         }
 
         composable("routes_screen") {

@@ -54,7 +54,10 @@ fun AppDrawer(
                     modifier = Modifier.size(24.dp)
                 )
             },
-            onClick = { scope.launch { drawerState.close() } }
+            onClick = {
+                scope.launch { drawerState.close() }
+                navController.navigate("dashboard")
+            }
         )
 
         NavigationDrawerItem(
