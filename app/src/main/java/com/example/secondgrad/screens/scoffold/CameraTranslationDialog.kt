@@ -153,7 +153,7 @@ fun CameraTranslationDialog(
                                 ) {
                                     // عرض الحرف الحالي الراجع من الـ API
                                     Text(
-                                        text = prediction.isEmpty()  { "..." },
+                                        text = prediction.ifEmpty { "..." },
                                         color = Color(0xFF10B981),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
