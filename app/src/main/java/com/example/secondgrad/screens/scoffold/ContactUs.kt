@@ -13,12 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -37,11 +35,7 @@ fun ContactUs() {
     var selectedRating by remember { mutableStateOf("") }
     var selectedReason by remember { mutableStateOf("") }
 
-    CompositionLocalProvider(
-        LocalLayoutDirection provides LayoutDirection.Rtl
-    ) {
-
-        val rtlTextStyle = TextStyle(textAlign = TextAlign.End)
+    val arabicTextStyle = TextStyle(textAlign = TextAlign.End)
 
         Box(
             modifier = Modifier
@@ -90,7 +84,7 @@ fun ContactUs() {
                         Text(
                             text = text,
                             modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Start,
+                            textAlign = TextAlign.End,
                             color = Color.DarkGray,
                             fontWeight = FontWeight.Bold
                         )
@@ -101,9 +95,15 @@ fun ContactUs() {
                         value = name,
                         onValueChange = { name = it },
 
-                        placeholder = { Text("الاسم الثلاثي") },
+                        placeholder = {
+                            Text(
+                                text = "الاسم الثلاثي",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
 
-                        textStyle = rtlTextStyle.copy(color = green),
+                        textStyle = arabicTextStyle.copy(color = green),
 
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = green,
@@ -128,8 +128,14 @@ fun ContactUs() {
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        placeholder = { Text("example@mail.com") },
-                        textStyle = rtlTextStyle,
+                        placeholder = {
+                            Text(
+                                text = "example@mail.com",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
+                        textStyle = arabicTextStyle,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = green,
                             unfocusedBorderColor = green,
@@ -152,8 +158,14 @@ fun ContactUs() {
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it },
-                        placeholder = { Text("01234567890") },
-                        textStyle = rtlTextStyle,
+                        placeholder = {
+                            Text(
+                                text = "01234567890",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
+                        textStyle = arabicTextStyle,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = green,
                             unfocusedBorderColor = green,
@@ -200,7 +212,8 @@ fun ContactUs() {
                         placeholder = {
                             Text(
                                 "mm/dd/yyyy ",
-                                textAlign = TextAlign.Start
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
                             )
                         },
 
@@ -233,8 +246,14 @@ fun ContactUs() {
                     OutlinedTextField(
                         value = comments,
                         onValueChange = { comments = it },
-                        placeholder = { Text("اكتب ملاحظاتك...") },
-                        textStyle = rtlTextStyle,
+                        placeholder = {
+                            Text(
+                                text = "اكتب ملاحظاتك...",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
+                        textStyle = arabicTextStyle,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = green,
                             unfocusedBorderColor = green,
@@ -257,8 +276,14 @@ fun ContactUs() {
                     OutlinedTextField(
                         value = driverComment,
                         onValueChange = { driverComment = it },
-                        placeholder = { Text("مثال: السائق محترم والمواصلات نظيفة") },
-                        textStyle = rtlTextStyle,
+                        placeholder = {
+                            Text(
+                                text = "مثال: السائق محترم والمواصلات نظيفة",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
+                        textStyle = arabicTextStyle,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = green,
                             unfocusedBorderColor = green,
@@ -287,7 +312,6 @@ fun ContactUs() {
                 }
             }
         }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

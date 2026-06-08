@@ -25,16 +25,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.secondgrad.RouteData
@@ -53,93 +51,91 @@ fun BusScreen(
     val startStation = route.closestStationName.ifBlank { userLocation }
     val endStation = destination.ifBlank { segments.lastOrNull()?.stations?.lastOrNull().orEmpty() }
 
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Card(
-            elevation = CardDefaults.cardElevation(10.dp),
-            shape = RoundedCornerShape(18.dp),
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Column(
+    Card(
+        elevation = CardDefaults.cardElevation(10.dp),
+        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                RouteHeader(route = route, segments = segments)
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                TimeAndCost(
+                    totalCost = totalCost,
+                    totalTimeInMinutes = totalTime
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Color(0xFFE5E7EB))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp)
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    RouteHeader(route = route, segments = segments)
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    TimeAndCost(
-                        totalCost = totalCost,
-                        totalTimeInMinutes = totalTime
+                    TripTimeline(
+                        stepsCount = segments.size,
+                        transferCount = route.transferStations.size
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Min),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.Top
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.End
                     ) {
-                        TripTimeline(
-                            stepsCount = segments.size,
-                            transferCount = route.transferStations.size
+                        LocationLabel(
+                            title = "انت هنا",
+                            value = startStation,
+                            titleColor = Color(0xFFFF7A00)
                         )
 
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            LocationLabel(
-                                title = "انت هنا",
-                                value = startStation,
-                                titleColor = Color(0xFFFF7A00)
-                            )
+                        segments.forEachIndexed { index, segment ->
+                            SegmentCard(segment = segment)
 
-                            segments.forEachIndexed { index, segment ->
-                                SegmentCard(segment = segment)
-
-                                if (index < segments.lastIndex) {
-                                    TransferCard(
-                                        stationName = route.transferStations.getOrNull(index)
-                                            ?: "محطة التحويل"
-                                    )
-                                }
+                            if (index < segments.lastIndex) {
+                                TransferCard(
+                                    stationName = route.transferStations.getOrNull(index)
+                                        ?: "محطة التحويل"
+                                )
                             }
-
-                            LocationLabel(
-                                title = "هتنزل",
-                                value = endStation,
-                                titleColor = Color(0xFF22C55E)
-                            )
                         }
+
+                        LocationLabel(
+                            title = "هتنزل",
+                            value = endStation,
+                            titleColor = Color(0xFF22C55E)
+                        )
                     }
                 }
+            }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFF22C55E),
-                                    Color(0xFFFF7A00)
-                                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color(0xFF22C55E),
+                                Color(0xFFFF7A00)
                             )
                         )
-                )
-            }
+                    )
+            )
         }
     }
 }
@@ -231,6 +227,7 @@ private fun LocationLabel(
         color = Color(0xFF111827),
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.End,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
