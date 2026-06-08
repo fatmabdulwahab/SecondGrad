@@ -7,9 +7,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
+data class RouteUiState(
+    val fromText: String = "",
+    val toText: String = "",
+    val routes: List<RouteData> = java.util.ArrayList<RouteData>(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val isVoiceSending: Boolean = false,
+    val voiceMessage: String? = null
+)
+
 class RouteViewModel : ViewModel() {
 
     private val repository = RouteRepository()
+
+    private val _uiState = MutableStateFlow(RouteUiState())
+    val uiState = _uiState.asStateFlow()
 
     private val _fromText = MutableStateFlow("")
     val fromText = _fromText.asStateFlow()
@@ -34,10 +47,12 @@ class RouteViewModel : ViewModel() {
 
     fun onFromTextChange(value: String) {
         _fromText.value = value
+        _uiState.value = _uiState.value.copy(fromText = value)
     }
 
     fun onToTextChange(value: String) {
         _toText.value = value
+        _uiState.value = _uiState.value.copy(toText = value)
     }
 
     fun searchRoutes() {
@@ -46,36 +61,47 @@ class RouteViewModel : ViewModel() {
 
         if (!hasText(userLocation) || !hasText(destination)) {
             _errorMessage.value = "اكتبي نقطة البداية والوجهة"
+            _uiState.value = _uiState.value.copy(errorMessage = "اكتبي نقطة البداية والوجهة")
             return
         }
 
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
-            runCatching {
-                repository.searchRoutes(
+            try {
+                val response = repository.searchRoutes(
                     SearchRouteRequest(
                         userLocation = userLocation,
                         destination = destination
                     )
                 )
-            }.onSuccess { response ->
+
                 _routes.value = response.data
+                _uiState.value = _uiState.value.copy(routes = response.data)
+
                 if (response.data.size == 0) {
                     _errorMessage.value = "مفيش طرق متاحة للبحث ده"
+                    _uiState.value = _uiState.value.copy(errorMessage = "مفيش طرق متاحة للبحث ده")
                 }
-            }.onFailure { throwable ->
+            } catch (throwable: Throwable) {
                 _routes.value = java.util.ArrayList<RouteData>()
+                _uiState.value = _uiState.value.copy(routes = java.util.ArrayList<RouteData>())
                 _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
+                )
             }
 
             _isLoading.value = false
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 
     fun clearError() {
         _errorMessage.value = null
+        _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
     fun sendVoice(file: File) {
@@ -83,23 +109,35 @@ class RouteViewModel : ViewModel() {
             _isVoiceSending.value = true
             _voiceMessage.value = null
             _errorMessage.value = null
+            _uiState.value = _uiState.value.copy(
+                isVoiceSending = true,
+                voiceMessage = null,
+                errorMessage = null
+            )
 
-            runCatching {
-                repository.sendVoice(file)
-            }.onSuccess { response ->
-                _voiceMessage.value = response.message
+            try {
+                val response = repository.sendVoice(file)
+                val message = response.message
                     ?: response.status
                     ?: "تم إرسال الصوت بنجاح"
-            }.onFailure { throwable ->
+
+                _voiceMessage.value = message
+                _uiState.value = _uiState.value.copy(voiceMessage = message)
+            } catch (throwable: Throwable) {
                 _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
+                )
             }
 
             _isVoiceSending.value = false
+            _uiState.value = _uiState.value.copy(isVoiceSending = false)
         }
     }
 
     fun clearVoiceMessage() {
         _voiceMessage.value = null
+        _uiState.value = _uiState.value.copy(voiceMessage = null)
     }
 
     private fun hasText(value: String): Boolean {
