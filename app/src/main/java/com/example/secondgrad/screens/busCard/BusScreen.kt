@@ -46,10 +46,14 @@ fun BusScreen(
     modifier: Modifier = Modifier
 ) {
     val segments = route.routeDetails
-    val totalCost = segments.sumOf { it.ticketPrice }
-    val totalTime = segments.sumOf { it.averageTimeInMinutes }
-    val startStation = route.closestStationName.ifBlank { userLocation }
-    val endStation = destination.ifBlank { segments.lastOrNull()?.stations?.lastOrNull().orEmpty() }
+    val totalCost = calculateTotalCost(segments)
+    val totalTime = calculateTotalTime(segments)
+    val startStation = if (route.closestStationName.length == 0) {
+        userLocation
+    } else {
+        route.closestStationName
+    }
+    val endStation = getEndStation(destination, segments)
 
     Card(
         elevation = CardDefaults.cardElevation(10.dp),
@@ -102,15 +106,22 @@ fun BusScreen(
                             titleColor = Color(0xFFFF7A00)
                         )
 
-                        segments.forEachIndexed { index, segment ->
+                        var index = 0
+                        while (index < segments.size) {
+                            val segment = segments[index]
                             SegmentCard(segment = segment)
 
-                            if (index < segments.lastIndex) {
-                                TransferCard(
-                                    stationName = route.transferStations.getOrNull(index)
-                                        ?: "محطة التحويل"
-                                )
+                            if (index != segments.size - 1) {
+                                val stationName = if (index < route.transferStations.size) {
+                                    route.transferStations[index]
+                                } else {
+                                    "محطة التحويل"
+                                }
+
+                                TransferCard(stationName = stationName)
                             }
+
+                            index++
                         }
 
                         LocationLabel(
@@ -129,10 +140,7 @@ fun BusScreen(
                     .align(Alignment.BottomCenter)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color(0xFF22C55E),
-                                Color(0xFFFF7A00)
-                            )
+                            colors = gradientColors()
                         )
                     )
             )
@@ -164,13 +172,15 @@ private fun RouteHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End
             ) {
-                segments.forEachIndexed { index, segment ->
+                var index = 0
+                while (index < segments.size) {
+                    val segment = segments[index]
                     ChipItem(
                         text = segment.routeName,
-                        isSelected = index == segments.lastIndex
+                        isSelected = index == segments.size - 1
                     )
 
-                    if (index < segments.lastIndex) {
+                    if (index != segments.size - 1) {
                         Text(
                             text = "<",
                             color = Color(0xFFFF7A00),
@@ -178,6 +188,8 @@ private fun RouteHeader(
                             fontWeight = FontWeight.Bold
                         )
                     }
+
+                    index++
                 }
             }
         }
@@ -187,9 +199,9 @@ private fun RouteHeader(
 @Composable
 private fun TransferBadge(routeType: String) {
     val label = when {
-        routeType.equals("Direct", ignoreCase = true) -> "مباشر"
-        routeType.startsWith("1 ") -> "Transfer 1"
-        routeType.startsWith("2 ") -> "Transfer 2"
+        routeType == "Direct" -> "مباشر"
+        startsWithText(routeType, "1 ") -> "Transfer 1"
+        startsWithText(routeType, "2 ") -> "Transfer 2"
         else -> routeType
     }
 
@@ -372,14 +384,73 @@ private fun TripTimeline(
                 .height(lineHeight)
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFFF7A00),
-                            Color(0xFF22C55E)
-                        )
+                        colors = gradientColors()
                     )
                 )
         )
 
         TelegramIcon()
     }
+}
+
+private fun calculateTotalCost(segments: List<RouteDetail>): Int {
+    var total = 0
+    var index = 0
+    while (index < segments.size) {
+        total += segments[index].ticketPrice
+        index++
+    }
+    return total
+}
+
+private fun calculateTotalTime(segments: List<RouteDetail>): Int {
+    var total = 0
+    var index = 0
+    while (index < segments.size) {
+        total += segments[index].averageTimeInMinutes
+        index++
+    }
+    return total
+}
+
+private fun getEndStation(destination: String, segments: List<RouteDetail>): String {
+    if (destination.length > 0) {
+        return destination
+    }
+
+    if (segments.size == 0) {
+        return ""
+    }
+
+    val lastSegment = segments[segments.size - 1]
+    val stations = lastSegment.stations
+
+    if (stations.size == 0) {
+        return ""
+    }
+
+    return stations[stations.size - 1]
+}
+
+private fun startsWithText(value: String, prefix: String): Boolean {
+    if (value.length < prefix.length) {
+        return false
+    }
+
+    var index = 0
+    while (index < prefix.length) {
+        if (value[index] != prefix[index]) {
+            return false
+        }
+        index++
+    }
+
+    return true
+}
+
+private fun gradientColors(): java.util.ArrayList<Color> {
+    val colors = java.util.ArrayList<Color>()
+    colors.add(Color(0xFF22C55E))
+    colors.add(Color(0xFFFF7A00))
+    return colors
 }
