@@ -12,7 +12,15 @@ data class ApiPage<T>(
 data class ApiMessageResponse(
     @SerializedName("message") val message: String? = null,
     @SerializedName("status") val status: String? = null,
-    @SerializedName("success") val success: Boolean? = null
+    @SerializedName("success") val success: Boolean? = null,
+    @SerializedName("data") val data: String? = null
+)
+
+data class VoiceSearchResult(
+    val transcription: String = "",
+    val origin: String = "",
+    val destination: String = "",
+    val status: String = ""
 )
 
 data class SignUpRequest(

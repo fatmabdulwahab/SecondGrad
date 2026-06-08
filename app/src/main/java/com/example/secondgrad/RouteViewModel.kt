@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.File
 
 data class RouteUiState(
@@ -117,9 +118,27 @@ class RouteViewModel : ViewModel() {
 
             try {
                 val response = repository.sendVoice(file)
-                val message = response.message
+                val voiceResult = parseVoiceSearchResult(response.data)
+                var message = response.message
                     ?: response.status
                     ?: "تم إرسال الصوت بنجاح"
+
+                if (voiceResult != null) {
+                    if (hasText(voiceResult.origin)) {
+                        _fromText.value = voiceResult.origin
+                    }
+
+                    if (hasText(voiceResult.destination)) {
+                        _toText.value = voiceResult.destination
+                    }
+
+                    _uiState.value = _uiState.value.copy(
+                        fromText = _fromText.value,
+                        toText = _toText.value
+                    )
+
+                    message = "تم استخراج الرحلة من الصوت"
+                }
 
                 _voiceMessage.value = message
                 _uiState.value = _uiState.value.copy(voiceMessage = message)
@@ -150,5 +169,40 @@ class RouteViewModel : ViewModel() {
             index++
         }
         return false
+    }
+
+    private fun parseVoiceSearchResult(data: String?): VoiceSearchResult? {
+        if (data == null || data.length == 0) {
+            return null
+        }
+
+        return try {
+            val jsonObject = JSONObject(data)
+            val transcription = getJsonText(jsonObject, "transcription")
+            val origin = getJsonText(jsonObject, "origin")
+            val destination = getJsonText(jsonObject, "destination")
+            val status = getJsonText(jsonObject, "status")
+
+            if (!hasText(origin) && !hasText(destination)) {
+                null
+            } else {
+                VoiceSearchResult(
+                    transcription = transcription,
+                    origin = origin,
+                    destination = destination,
+                    status = status
+                )
+            }
+        } catch (throwable: Throwable) {
+            null
+        }
+    }
+
+    private fun getJsonText(jsonObject: JSONObject, key: String): String {
+        return if (jsonObject.has(key)) {
+            jsonObject.optString(key, "")
+        } else {
+            ""
+        }
     }
 }
