@@ -1,7 +1,7 @@
 package com.example.secondgrad.screens.scoffold
 
-import android.R.attr.text
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,8 +47,10 @@ fun CameraTranslationDialog(
     val prediction by viewModel.prediction.collectAsState()
     val currentWord by viewModel.currentWord.collectAsState()
     val sessionId by viewModel.sessionId.collectAsState()
+    val cameraError by viewModel.errorMessage.collectAsState()
     var cameraUiState by remember { mutableStateOf(CameraUiState.Initial) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
 
     LaunchedEffect(sessionId) {
@@ -56,6 +59,14 @@ fun CameraTranslationDialog(
         }
     }
 
+    LaunchedEffect(cameraError) {
+        val message = cameraError
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+            cameraUiState = CameraUiState.Initial
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -127,7 +138,10 @@ fun CameraTranslationDialog(
                             CameraUiState.Ready -> {
                                 CameraPreview(
                                     activity = activity,
-                                    signViewModel = viewModel
+                                    signViewModel = viewModel,
+                                    onError = { message ->
+                                        viewModel.setCameraError(message)
+                                    }
                                 )
                             }
                             else -> LoadingStateView("جاري تشغيل الكاميرا...")
@@ -311,14 +325,17 @@ fun CameraTranslationDialog(
 
                                                 cameraUiState = CameraUiState.CreatingSession
 
-                                                viewModel.createSession()
-                                                delay(1000)
+                                                val isSessionCreated = viewModel.createSessionForCamera()
+                                                if (!isSessionCreated) {
+                                                    cameraUiState = CameraUiState.Initial
+                                                    return@launch
+                                                }
 
                                                 cameraUiState = CameraUiState.ConnectingServer
-                                                delay(1000)
+                                                delay(400)
 
                                                 cameraUiState = CameraUiState.StartingCamera
-                                                delay(1000)
+                                                delay(400)
 
                                                 cameraUiState = CameraUiState.Ready
                                             }

@@ -3,6 +3,8 @@ package com.example.secondgrad.screens.scoffold
 
 import android.annotation.SuppressLint
 import com.example.secondgrad.R
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -19,9 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -41,8 +45,12 @@ fun SearchSection(viewModel: RouteViewModel) {
     // فقط بنراقب الديالوج يفتح ولا يقفل
     var isCameraActive by remember { mutableStateOf(false) }
     var isVoiceActive by remember { mutableStateOf(false) }
-    val activity = LocalContext.current as ComponentActivity
     val context = LocalContext.current
+    val activity = context.findComponentActivity()
+    val arabicFieldTextStyle = TextStyle(
+        textAlign = TextAlign.End,
+        textDirection = TextDirection.ContentOrRtl
+    )
 
     LaunchedEffect(errorMessage) {
         val message = errorMessage
@@ -104,7 +112,7 @@ fun SearchSection(viewModel: RouteViewModel) {
         Spacer(modifier = Modifier.height(4.dp))
 
         // استدعاء الـ Dialog المنفصل هنا ونمرر له الأكشنز
-        if (isCameraActive) {
+        if (isCameraActive && activity != null) {
             CameraTranslationDialog(
                 activity = activity,
                 onDismiss = { isCameraActive = false },
@@ -113,6 +121,9 @@ fun SearchSection(viewModel: RouteViewModel) {
                     isCameraActive = false
                 }
             )
+        } else if (isCameraActive) {
+            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
+            isCameraActive = false
         }
 
         // حقل نص (From)
@@ -135,6 +146,7 @@ fun SearchSection(viewModel: RouteViewModel) {
 
                 label = { Text("From") },
                 singleLine = true,
+                textStyle = arabicFieldTextStyle,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text
                 ),
@@ -173,6 +185,7 @@ fun SearchSection(viewModel: RouteViewModel) {
                 onValueChange = viewModel::onToTextChange,
                 label = { Text("To") },
                 singleLine = true,
+                textStyle = arabicFieldTextStyle,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text
                 ),
@@ -261,5 +274,13 @@ fun SearchSection(viewModel: RouteViewModel) {
                 textAlign = TextAlign.Right
             )
         }
+    }
+}
+
+private tailrec fun Context.findComponentActivity(): ComponentActivity? {
+    return when (this) {
+        is ComponentActivity -> this
+        is ContextWrapper -> baseContext.findComponentActivity()
+        else -> null
     }
 }

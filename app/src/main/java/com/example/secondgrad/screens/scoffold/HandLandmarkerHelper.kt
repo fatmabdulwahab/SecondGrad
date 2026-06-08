@@ -25,8 +25,10 @@ class HandLandmarkerHelper(
     var sessionId: String? = null // 👈 جعلناه public عشان الـ UI يقدر يقرأه عند إنهاء الجلسة
     private var lastSentTime = 0L
 
-    fun setupHandLandmarker() {
-        try {
+    fun setupHandLandmarker(): Boolean {
+        return try {
+            context.assets.open("hand_landmarker.task").close()
+
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("hand_landmarker.task")
                 .build()
@@ -42,8 +44,10 @@ class HandLandmarkerHelper(
 
             Log.d("HAND", "landmarker created = ${handLandmarker != null}")
 
+            handLandmarker != null
         } catch (e: Exception) {
             Log.e("HAND_FATAL", e.message.toString())
+            false
         }
     }
     fun getHandLandmarker(): HandLandmarker? = handLandmarker
