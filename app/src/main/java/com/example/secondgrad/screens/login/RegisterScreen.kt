@@ -94,7 +94,7 @@ fun RegisterScreen(navController: NavController) {
                         // التحقق من الحقول
                         emailError = when {
                             !hasRegisterText(email) -> "email is required"
-                            !email.contains("@") -> "please include an '@' in the email address"
+                            !hasRegisterChar(email, '@') -> "please include an '@' in the email address"
                             else -> ""
                         }
                         passwordError = if (!hasRegisterText(password)) "Password is required"
@@ -143,13 +143,13 @@ fun CustomInputField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = color,
                 unfocusedBorderColor = color.copy(alpha = 0.3f),
-                errorBorderColor = if (errorMessage.contains("required")) color else Color.Red
+                errorBorderColor = if (isRequiredMessage(errorMessage)) color else Color.Red
             )
         )
 
         if (errorMessage.length > 0) {
             // تحديد اللون والشكل بناءً على نوع الخطأ
-            val isRequiredError = errorMessage.contains("required") || errorMessage.contains("Required")
+            val isRequiredError = isRequiredMessage(errorMessage)
 
             // لو الخطأ "required" نستخدم الأخضر الشفاف، لو خطأ إيميل نستخدم الأسود الشفاف
             val backgroundColor = if (isRequiredError) color.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.7f)
@@ -195,6 +195,48 @@ private fun hasRegisterText(value: String): Boolean {
         }
         index++
     }
+    return false
+}
+
+private fun hasRegisterChar(value: String, target: Char): Boolean {
+    var index = 0
+    while (index < value.length) {
+        if (value[index] == target) {
+            return true
+        }
+        index++
+    }
+    return false
+}
+
+private fun isRequiredMessage(value: String): Boolean {
+    return hasWordAt(value, "required") || hasWordAt(value, "Required")
+}
+
+private fun hasWordAt(value: String, word: String): Boolean {
+    if (word.length == 0 || value.length < word.length) {
+        return false
+    }
+
+    var start = 0
+    while (start <= value.length - word.length) {
+        var offset = 0
+        var matched = true
+
+        while (offset < word.length) {
+            if (value[start + offset] != word[offset]) {
+                matched = false
+                break
+            }
+            offset++
+        }
+
+        if (matched) {
+            return true
+        }
+        start++
+    }
+
     return false
 }
 /*

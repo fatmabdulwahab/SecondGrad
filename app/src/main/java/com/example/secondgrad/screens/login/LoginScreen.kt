@@ -213,8 +213,8 @@ fun LoginScreen(navController: NavController) {
                     onClick = {
                         emailError = when {
                             !hasLoginText(email) -> "email is required"
-                            !email.contains("@") -> "Please include '@' in the email."
-                            email.endsWith("@") || email.indexOf("@") == email.length - 1 ->
+                            !hasLoginChar(email, '@') -> "Please include '@' in the email."
+                            endsWithLoginChar(email, '@') ->
                                 "Please enter a part following '@'. '$email' is incomplete."
                             else -> ""
                         }
@@ -281,4 +281,22 @@ private fun hasLoginText(value: String): Boolean {
         index++
     }
     return false
+}
+
+private fun hasLoginChar(value: String, target: Char): Boolean {
+    var index = 0
+    while (index < value.length) {
+        if (value[index] == target) {
+            return true
+        }
+        index++
+    }
+    return false
+}
+
+private fun endsWithLoginChar(value: String, target: Char): Boolean {
+    if (value.length == 0) {
+        return false
+    }
+    return value[value.length - 1] == target
 }

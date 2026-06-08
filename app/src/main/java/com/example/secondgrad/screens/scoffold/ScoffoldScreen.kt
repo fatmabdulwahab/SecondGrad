@@ -44,7 +44,7 @@ fun ScaffoldScreen(navController: NavController) {
                 route.routeDetails.any { it.routeName.startsWith("M", ignoreCase = true) }
             }
             "مترو" -> routes.filter { route ->
-                route.routeDetails.any { it.routeName.contains("الخط") }
+                route.routeDetails.any { hasTextPart(it.routeName, "الخط") }
             }
             else -> routes
         }
@@ -111,4 +111,31 @@ fun ScaffoldScreen(navController: NavController) {
             }
         }
     }
+}
+
+private fun hasTextPart(value: String, part: String): Boolean {
+    if (part.length == 0 || value.length < part.length) {
+        return false
+    }
+
+    var start = 0
+    while (start <= value.length - part.length) {
+        var offset = 0
+        var matched = true
+
+        while (offset < part.length) {
+            if (value[start + offset] != part[offset]) {
+                matched = false
+                break
+            }
+            offset++
+        }
+
+        if (matched) {
+            return true
+        }
+        start++
+    }
+
+    return false
 }
