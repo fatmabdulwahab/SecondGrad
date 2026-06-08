@@ -86,7 +86,7 @@ fun ScaffoldScreen(navController: NavController) {
                 FilterSection(selected = selectedFilter, onSelectedChange = { selectedFilter = it })
                 Spacer(modifier = Modifier.height(20.dp))
 
-                if (isLoading && routes.isEmpty()) {
+                if (isLoading && routes.size == 0) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(modifier = Modifier.weight(1f))
                 } else {

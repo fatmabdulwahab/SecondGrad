@@ -248,7 +248,7 @@ private fun RolesSection(
             Column {
                 RolesTableHeader()
 
-                if (isLoading && roles.isEmpty()) {
+                if (isLoading && roles.size == 0) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -257,7 +257,7 @@ private fun RolesSection(
                     ) {
                         CircularProgressIndicator(color = Color(0xFF2F965D))
                     }
-                } else if (roles.isEmpty()) {
+                } else if (roles.size == 0) {
                     Text(
                         text = "لا توجد صلاحيات متاحة",
                         color = Color.Gray,

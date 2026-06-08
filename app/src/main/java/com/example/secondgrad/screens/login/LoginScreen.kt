@@ -212,20 +212,20 @@ fun LoginScreen(navController: NavController) {
                 Button(
                     onClick = {
                         emailError = when {
-                            email.isBlank() -> "email is required"
+                            !hasLoginText(email) -> "email is required"
                             !email.contains("@") -> "Please include '@' in the email."
-                            email.endsWith("@") || email.substringAfter("@").isBlank() ->
+                            email.endsWith("@") || email.indexOf("@") == email.length - 1 ->
                                 "Please enter a part following '@'. '$email' is incomplete."
                             else -> ""
                         }
 
                         passwordError = when {
-                            password.isBlank() -> "password is required"
+                            !hasLoginText(password) -> "password is required"
                             password.length < 5 -> "password is invalid"
                             else -> ""
                         }
 
-                        if (emailError.isEmpty() && passwordError.isEmpty()) {
+                        if (emailError.length == 0 && passwordError.length == 0) {
                             navController.navigate("home") {
                                 popUpTo("login") { inclusive = true }
                             }
@@ -269,4 +269,13 @@ fun LoginScreen(navController: NavController) {
             }
         }
     }
+}
+
+private fun hasLoginText(value: String): Boolean {
+    for (char in value) {
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            return true
+        }
+    }
+    return false
 }

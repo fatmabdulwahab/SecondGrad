@@ -41,10 +41,10 @@ class RouteViewModel : ViewModel() {
     }
 
     fun searchRoutes() {
-        val userLocation = _fromText.value.trim()
-        val destination = _toText.value.trim()
+        val userLocation = _fromText.value
+        val destination = _toText.value
 
-        if (userLocation.isBlank() || destination.isBlank()) {
+        if (!hasText(userLocation) || !hasText(destination)) {
             _errorMessage.value = "اكتبي نقطة البداية والوجهة"
             return
         }
@@ -62,7 +62,7 @@ class RouteViewModel : ViewModel() {
                 )
             }.onSuccess { response ->
                 _routes.value = response.data
-                if (response.data.isEmpty()) {
+                if (response.data.size == 0) {
                     _errorMessage.value = "مفيش طرق متاحة للبحث ده"
                 }
             }.onFailure { throwable ->
@@ -100,5 +100,14 @@ class RouteViewModel : ViewModel() {
 
     fun clearVoiceMessage() {
         _voiceMessage.value = null
+    }
+
+    private fun hasText(value: String): Boolean {
+        for (char in value) {
+            if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+                return true
+            }
+        }
+        return false
     }
 }

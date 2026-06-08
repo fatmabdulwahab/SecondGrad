@@ -54,7 +54,7 @@ fun CameraTranslationDialog(
 
 
     LaunchedEffect(sessionId) {
-        if (sessionId.isNotBlank()) {
+        if (sessionId.length > 0) {
             cameraUiState = CameraUiState.Ready
         }
     }
@@ -167,7 +167,7 @@ fun CameraTranslationDialog(
                                 ) {
                                     // عرض الحرف الحالي الراجع من الـ API
                                     Text(
-                                        text = prediction.ifEmpty { "..." },
+                                        text = if (prediction.length == 0) "..." else prediction,
                                         color = Color(0xFF10B981),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
@@ -192,10 +192,10 @@ fun CameraTranslationDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = currentWord.ifEmpty { "ابدأ بتشكيل الكلمة إشارة تلو الأخرى..." },
-                                        color = if (currentWord.isEmpty()) Color.LightGray else Color(0xFF0F172A),
+                                        text = if (currentWord.length == 0) "ابدأ بتشكيل الكلمة إشارة تلو الأخرى..." else currentWord,
+                                        color = if (currentWord.length == 0) Color.LightGray else Color(0xFF0F172A),
                                         fontSize = 15.sp,
-                                        fontWeight = if (currentWord.isEmpty()) FontWeight.Normal else FontWeight.Bold,
+                                        fontWeight = if (currentWord.length == 0) FontWeight.Normal else FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -271,7 +271,7 @@ fun CameraTranslationDialog(
                                     // 👇 زر حفظ الكلمة متصل بـ endSession الـ API
                                     Button(
                                         onClick = {
-                                            if (sessionId.isNotBlank()) {
+                                            if (sessionId.length > 0) {
                                                 scope.launch(Dispatchers.IO) {
                                                     try {
 

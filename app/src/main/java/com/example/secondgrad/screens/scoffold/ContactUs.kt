@@ -335,7 +335,7 @@ fun CustomDropdown(
             modifier = Modifier.wrapContentWidth()
         ) {
             OutlinedTextField(
-                value = if (selectedOption.isEmpty()) label else selectedOption,
+                value = if (selectedOption.length == 0) label else selectedOption,
                 onValueChange = {},
                 readOnly = true,
                 leadingIcon = {

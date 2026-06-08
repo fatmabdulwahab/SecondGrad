@@ -56,7 +56,7 @@ class HandLandmarkerHelper(
 
     private fun onResult(result: HandLandmarkerResult, inputImage: MPImage) {
 
-        if (result.landmarks().isEmpty()) return
+        if (result.landmarks().size == 0) return
         val now = System.currentTimeMillis()
         if (now - lastSentTime < 1000) return // إرسال فريم كل ثانية
         lastSentTime = now

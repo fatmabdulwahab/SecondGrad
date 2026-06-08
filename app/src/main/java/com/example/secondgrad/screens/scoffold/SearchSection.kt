@@ -232,9 +232,9 @@ fun SearchSection(viewModel: RouteViewModel) {
 
             Button(
                 onClick = {
-                    val location = if (toText.isBlank()) fromText else toText
+                    val location = if (hasText(toText)) toText else fromText
 
-                    if (location.isNotBlank()) {
+                    if (hasText(location)) {
                         val intent = Intent(
                             Intent.ACTION_VIEW,
                             "geo:0,0?q=${Uri.encode(location)}".toUri()
@@ -283,4 +283,13 @@ private tailrec fun Context.findComponentActivity(): ComponentActivity? {
         is ContextWrapper -> baseContext.findComponentActivity()
         else -> null
     }
+}
+
+private fun hasText(value: String): Boolean {
+    for (char in value) {
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            return true
+        }
+    }
+    return false
 }

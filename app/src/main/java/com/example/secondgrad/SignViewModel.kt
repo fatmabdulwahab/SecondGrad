@@ -59,7 +59,7 @@ class SignViewModel : ViewModel() {
         val currentSession = _sessionId.value
         Log.d("VM", "session = $currentSession")
 
-        if (currentSession.trim().isEmpty()) return
+        if (currentSession.length == 0) return
 
         viewModelScope.launch {
 

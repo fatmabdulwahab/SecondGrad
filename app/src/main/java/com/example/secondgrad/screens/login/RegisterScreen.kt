@@ -93,17 +93,17 @@ fun RegisterScreen(navController: NavController) {
                     onClick = {
                         // التحقق من الحقول
                         emailError = when {
-                            email.isBlank() -> "email is required"
+                            !hasRegisterText(email) -> "email is required"
                             !email.contains("@") -> "please include an '@' in the email address"
                             else -> ""
                         }
-                        passwordError = if (password.isBlank()) "Password is required"
-                        else if (password.length < 5 || !password[0].isUpperCase()) "password is invalid ex: Ahmed123 " else ""
-                        nameError = if (name.isBlank()) "name is required" else ""
-                        countryError = if (country.isBlank()) "country is required" else ""
-                        addressError = if (address.isBlank()) "address is required" else ""
+                        passwordError = if (!hasRegisterText(password)) "Password is required"
+                        else if (password.length < 5 || password[0] < 'A' || password[0] > 'Z') "password is invalid ex: Ahmed123 " else ""
+                        nameError = if (!hasRegisterText(name)) "name is required" else ""
+                        countryError = if (!hasRegisterText(country)) "country is required" else ""
+                        addressError = if (!hasRegisterText(address)) "address is required" else ""
 
-                        if (emailError.isEmpty() && passwordError.isEmpty() && nameError.isEmpty() && countryError.isEmpty() && addressError.isEmpty()) {
+                        if (emailError.length == 0 && passwordError.length == 0 && nameError.length == 0 && countryError.length == 0 && addressError.length == 0) {
                             navController.navigate("home")
                         }
                     },
@@ -138,7 +138,7 @@ fun CustomInputField(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(15.dp),
-            isError = errorMessage.isNotEmpty(),
+            isError = errorMessage.length > 0,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = color,
@@ -147,9 +147,9 @@ fun CustomInputField(
             )
         )
 
-        if (errorMessage.isNotEmpty()) {
+        if (errorMessage.length > 0) {
             // تحديد اللون والشكل بناءً على نوع الخطأ
-            val isRequiredError = errorMessage.contains("required", ignoreCase = true)
+            val isRequiredError = errorMessage.contains("required") || errorMessage.contains("Required")
 
             // لو الخطأ "required" نستخدم الأخضر الشفاف، لو خطأ إيميل نستخدم الأسود الشفاف
             val backgroundColor = if (isRequiredError) color.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.7f)
@@ -184,6 +184,15 @@ fun CustomInputField(
             }
         }
     }
+}
+
+private fun hasRegisterText(value: String): Boolean {
+    for (char in value) {
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            return true
+        }
+    }
+    return false
 }
 /*
 @Composable
@@ -290,13 +299,13 @@ fun RegisterScreen(navController: NavController) {
                 Button(
                     onClick = {
 
-                        nameError = if (name.isBlank()) "Name is required" else ""
-                        emailError = if (email.isBlank()) "Email is required" else ""
+                        nameError = if (!hasRegisterText(name)) "Name is required" else ""
+                        emailError = if (!hasRegisterText(email)) "Email is required" else ""
                         passwordError = if (password.length < 6) "Min 6 characters" else ""
 
-                        val isValid = nameError.isEmpty()
-                                && emailError.isEmpty()
-                                && passwordError.isEmpty()
+                        val isValid = nameError.length == 0
+                                && emailError.length == 0
+                                && passwordError.length == 0
 
                         if (isValid) {
                             navController.navigate("home") {
