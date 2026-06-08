@@ -3,7 +3,6 @@ package com.example.secondgrad.screens.scoffold
 
 import android.annotation.SuppressLint
 import com.example.secondgrad.R
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -21,27 +20,33 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.text.input.KeyboardType
+import com.example.secondgrad.RouteViewModel
 
 @SuppressLint("ContextCastToActivity")
 @Composable
-fun SearchSection(context: Context ) {
+fun SearchSection(viewModel: RouteViewModel) {
 
-//
-//    val fromText by viewModel.fromText.collectAsState()
-//    val toText by viewModel.toText.collectAsState()
+    val fromText by viewModel.fromText.collectAsState()
+    val toText by viewModel.toText.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     // فقط بنراقب الديالوج يفتح ولا يقفل
     var isCameraActive by remember { mutableStateOf(false) }
     val activity = LocalContext.current as ComponentActivity
     val context = LocalContext.current
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+        }
+    }
 
-    //val viewModel: RouteViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     Column(
         modifier = Modifier
             .fillMaxWidth(0.96f)
@@ -104,8 +109,8 @@ fun SearchSection(context: Context ) {
             )
 
             OutlinedTextField(
-                value =  "",
-                onValueChange = {   },
+                value = fromText,
+                onValueChange = viewModel::onFromTextChange,
 
                 label = { Text("From") },
                 singleLine = true,
@@ -143,8 +148,8 @@ fun SearchSection(context: Context ) {
             )
 
             OutlinedTextField(
-                value =  "",
-                onValueChange = {   },
+                value = toText,
+                onValueChange = viewModel::onToTextChange,
                 label = { Text("To") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(
@@ -158,48 +163,57 @@ fun SearchSection(context: Context ) {
 
         // الأزرار السفليّة (Search & Google Maps)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
         ) {
 
 
-          //  val viewModel: RouteViewModel = viewModel()
-                  Button(
-                onClick = {
-
-
-                },
+            Button(
+                onClick = viewModel::searchRoutes,
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).weight(1f)
+                modifier = Modifier
+                    .height(40.dp)
+                    .weight(1f)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_5),
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "Search", color = Color.White, fontSize = 12.sp)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_5),
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Search", color = Color.White, fontSize = 12.sp)
+                }
             }
 
             Button(
                 onClick = {
-//
-//                   val location = toText.ifBlank { fromText }
-//
-//                    if (location.isNotBlank()) {
-//
-//                        val intent = Intent(
-//                            Intent.ACTION_VIEW,
-//                            "geo:0,0?q=${Uri.encode(location)}".toUri()
-//                        )
-//
-//                        context.startActivity(intent)
-//                    }
+                    val location = toText.ifBlank { fromText }
+
+                    if (location.isNotBlank()) {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            "geo:0,0?q=${Uri.encode(location)}".toUri()
+                        )
+
+                        context.startActivity(intent)
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).weight(1.5f)
+                modifier = Modifier
+                    .height(40.dp)
+                    .weight(1.5f)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_7),

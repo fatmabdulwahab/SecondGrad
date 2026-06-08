@@ -4,7 +4,7 @@ package com.example.secondgrad
 import com.google.gson.annotations.SerializedName
 
 data class SearchRouteRequest(
-    @SerializedName("user_location")
+    @SerializedName("userLocation")
     val userLocation: String,
 
     @SerializedName("destination")

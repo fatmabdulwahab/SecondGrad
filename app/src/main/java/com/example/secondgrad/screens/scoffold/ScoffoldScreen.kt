@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,13 +31,24 @@ fun ScaffoldScreen(navController: NavController) {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val routeViewModel: RouteViewModel = viewModel()
     val routes by routeViewModel.routes.collectAsState()
+    val fromText by routeViewModel.fromText.collectAsState()
+    val toText by routeViewModel.toText.collectAsState()
+    val isLoading by routeViewModel.isLoading.collectAsState()
 
    var selectedFilter by remember { mutableStateOf("الكل") }
-//    val routes = listOf("باص", "مترو", "باص")
-//    val filteredRoutes = if (selectedFilter == "الكل") routes else routes.filter { it == selectedFilter }
+    val filteredRoutes = remember(routes, selectedFilter) {
+        when (selectedFilter) {
+            "باص" -> routes.filter { route ->
+                route.routeDetails.any { it.routeName.startsWith("M", ignoreCase = true) }
+            }
+            "مترو" -> routes.filter { route ->
+                route.routeDetails.any { it.routeName.contains("الخط") }
+            }
+            else -> routes
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -71,26 +81,31 @@ fun ScaffoldScreen(navController: NavController) {
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(text = "YOUR JOURNEY STARTS HERE", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(20.dp))
-                SearchSection(context = context)
+                SearchSection(viewModel = routeViewModel)
                 Spacer(modifier = Modifier.height(20.dp))
                 FilterSection(selected = selectedFilter, onSelectedChange = { selectedFilter = it })
                 Spacer(modifier = Modifier.height(20.dp))
 
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth(0.96f)
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
+                if (isLoading && routes.isEmpty()) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(modifier = Modifier.weight(1f))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth(0.96f)
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
 
-                    items(routes) { route ->
+                        items(filteredRoutes) { route ->
 
-                        BusScreen(
-                            route = route,
-                            userLocation = "",
-                            destination = ""
-                        )
+                            BusScreen(
+                                route = route,
+                                userLocation = fromText,
+                                destination = toText
+                            )
+                        }
                     }
                 }
             }
