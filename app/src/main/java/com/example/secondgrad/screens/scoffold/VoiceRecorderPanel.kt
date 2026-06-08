@@ -64,6 +64,7 @@ fun VoiceRecorderPanel(
     isSending: Boolean,
     onSendVoice: (File) -> Unit,
     onCameraClick: () -> Unit,
+    onDeleteRecording: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -155,6 +156,7 @@ fun VoiceRecorderPanel(
                 runCatching { recorder?.stop() }
             }
             releaseRecorder()
+            recordedFile?.delete()
         }
     }
 
@@ -179,6 +181,7 @@ fun VoiceRecorderPanel(
                     recordedFile?.delete()
                     recordedFile = null
                     elapsedSeconds = 0
+                    onDeleteRecording()
                 }
             )
         }

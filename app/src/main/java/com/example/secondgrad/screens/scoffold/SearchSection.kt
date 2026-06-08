@@ -65,6 +65,7 @@ fun SearchSection(viewModel: RouteViewModel) {
         if (message != null) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearVoiceMessage()
+            isVoiceActive = false
         }
     }
 
@@ -99,7 +100,8 @@ fun SearchSection(viewModel: RouteViewModel) {
             VoiceRecorderPanel(
                 isSending = isVoiceSending,
                 onSendVoice = viewModel::sendVoice,
-                onCameraClick = { isCameraActive = true }
+                onCameraClick = { isCameraActive = true },
+                onDeleteRecording = { isVoiceActive = false }
             )
         } else {
             // استدعاء شريط الصوت والكاميرا وربطه بالـ State
