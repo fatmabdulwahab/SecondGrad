@@ -50,7 +50,7 @@ class DashboardRepository {
         val rolesArray = when {
             isJsonArray -> asJsonArray
             isJsonObject && asJsonObject.get("data")?.isJsonArray == true -> asJsonObject.getAsJsonArray("data")
-            else -> return emptyList()
+            else -> return java.util.ArrayList<RoleResponse>()
         }
 
         return rolesArray.mapIndexedNotNull { index, element ->

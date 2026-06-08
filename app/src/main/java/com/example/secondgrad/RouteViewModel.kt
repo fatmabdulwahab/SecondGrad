@@ -17,7 +17,7 @@ class RouteViewModel : ViewModel() {
     private val _toText = MutableStateFlow("")
     val toText = _toText.asStateFlow()
 
-    private val _routes = MutableStateFlow<List<RouteData>>(emptyList())
+    private val _routes = MutableStateFlow<List<RouteData>>(java.util.ArrayList<RouteData>())
     val routes = _routes.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
@@ -66,7 +66,7 @@ class RouteViewModel : ViewModel() {
                     _errorMessage.value = "مفيش طرق متاحة للبحث ده"
                 }
             }.onFailure { throwable ->
-                _routes.value = emptyList()
+                _routes.value = java.util.ArrayList<RouteData>()
                 _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
             }
 

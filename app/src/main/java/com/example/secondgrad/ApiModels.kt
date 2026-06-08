@@ -6,7 +6,7 @@ data class ApiPage<T>(
     @SerializedName("pageIndex") val pageIndex: Int? = null,
     @SerializedName("pageSize") val pageSize: Int? = null,
     @SerializedName("count") val count: Int? = null,
-    @SerializedName("data") val data: List<T> = emptyList()
+    @SerializedName("data") val data: List<T> = java.util.ArrayList<T>()
 )
 
 data class ApiMessageResponse(

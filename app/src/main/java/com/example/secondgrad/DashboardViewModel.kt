@@ -13,7 +13,7 @@ class DashboardViewModel : ViewModel() {
     private val _stats = MutableStateFlow(DashboardStats())
     val stats = _stats.asStateFlow()
 
-    private val _roles = MutableStateFlow<List<RoleResponse>>(emptyList())
+    private val _roles = MutableStateFlow<List<RoleResponse>>(java.util.ArrayList<RoleResponse>())
     val roles = _roles.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
