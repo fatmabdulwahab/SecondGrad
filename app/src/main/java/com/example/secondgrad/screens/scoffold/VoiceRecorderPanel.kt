@@ -74,18 +74,32 @@ fun VoiceRecorderPanel(
     var elapsedSeconds by remember { mutableIntStateOf(0) }
 
     fun releaseRecorder() {
-        recorder?.release()
+        val activeRecorder = recorder
+        if (activeRecorder != null) {
+            activeRecorder.release()
+        }
         recorder = null
     }
 
-    fun stopRecording() {
-        val activeRecorder = recorder ?: return
+    fun deleteRecordedFile() {
+        val file = recordedFile
+        if (file != null) {
+            file.delete()
+        }
+        recordedFile = null
+        elapsedSeconds = 0
+    }
 
-        runCatching {
+    fun stopRecording() {
+        val activeRecorder = recorder
+        if (activeRecorder == null) {
+            return
+        }
+
+        try {
             activeRecorder.stop()
-        }.onFailure {
-            recordedFile?.delete()
-            recordedFile = null
+        } catch (exception: Exception) {
+            deleteRecordedFile()
             Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
         }
 
@@ -104,7 +118,7 @@ fun VoiceRecorderPanel(
             MediaRecorder()
         }
 
-        runCatching {
+        try {
             mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
             mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
@@ -113,12 +127,12 @@ fun VoiceRecorderPanel(
             mediaRecorder.setOutputFile(outputFile.absolutePath)
             mediaRecorder.prepare()
             mediaRecorder.start()
-        }.onSuccess {
+
             recorder = mediaRecorder
             recordedFile = outputFile
             elapsedSeconds = 0
             isRecording = true
-        }.onFailure {
+        } catch (exception: Exception) {
             mediaRecorder.release()
             outputFile.delete()
             Toast.makeText(context, "مش قادرين نبدأ التسجيل", Toast.LENGTH_SHORT).show()
@@ -153,10 +167,22 @@ fun VoiceRecorderPanel(
     DisposableEffect(Unit) {
         onDispose {
             if (isRecording) {
-                runCatching { recorder?.stop() }
+                val activeRecorder = recorder
+                if (activeRecorder != null) {
+                    try {
+                        activeRecorder.stop()
+                    } catch (exception: Exception) {
+                        // Ignore stop errors while disposing the UI.
+                    }
+                }
             }
+
             releaseRecorder()
-            recordedFile?.delete()
+
+            val file = recordedFile
+            if (file != null) {
+                file.delete()
+            }
         }
     }
 
@@ -178,9 +204,7 @@ fun VoiceRecorderPanel(
                 onCameraClick = onCameraClick,
                 onSendVoice = onSendVoice,
                 onDelete = {
-                    recordedFile?.delete()
-                    recordedFile = null
-                    elapsedSeconds = 0
+                    deleteRecordedFile()
                     onDeleteRecording()
                 }
             )
@@ -212,7 +236,7 @@ private fun RecordingControls(
         Spacer(modifier = Modifier.width(10.dp))
 
         Text(
-            text = "Recording... 0:${elapsedSeconds.toString().padStart(2, '0')}",
+            text = "Recording... 0:${formatSeconds(elapsedSeconds)}",
             color = Color(0xFF1F2937),
             fontSize = 15.sp
         )
@@ -302,7 +326,11 @@ private fun StoppedControls(
         }
 
         Button(
-            onClick = { recordedFile?.let(onSendVoice) },
+            onClick = {
+                if (recordedFile != null) {
+                    onSendVoice(recordedFile)
+                }
+            },
             enabled = recordedFile != null && !isSending,
             shape = RoundedCornerShape(22.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
@@ -347,7 +375,7 @@ private fun StoppedControls(
         Spacer(modifier = Modifier.height(14.dp))
         AudioPlaybackBar(
             file = recordedFile,
-            totalSeconds = elapsedSeconds.coerceIn(1, MAX_RECORD_SECONDS)
+            totalSeconds = clampSeconds(elapsedSeconds)
         )
     }
 }
@@ -363,7 +391,10 @@ private fun AudioPlaybackBar(
     var progress by remember(file) { mutableFloatStateOf(0f) }
 
     fun stopPlayback() {
-        mediaPlayer?.release()
+        val player = mediaPlayer
+        if (player != null) {
+            player.release()
+        }
         mediaPlayer = null
         isPlaying = false
         progress = 0f
@@ -380,7 +411,10 @@ private fun AudioPlaybackBar(
                 isPlaying = false
                 progress = 0f
             } else {
-                val duration = player.duration.coerceAtLeast(1)
+                var duration = player.duration
+                if (duration < 1) {
+                    duration = 1
+                }
                 progress = player.currentPosition / duration.toFloat()
             }
             delay(250)
@@ -402,19 +436,18 @@ private fun AudioPlaybackBar(
                 if (isPlaying) {
                     stopPlayback()
                 } else {
-                    runCatching {
-                        MediaPlayer().apply {
-                            setDataSource(file.absolutePath)
-                            prepare()
-                            setOnCompletionListener {
-                                stopPlayback()
-                            }
-                            start()
+                    try {
+                        val newPlayer = MediaPlayer()
+                        newPlayer.setDataSource(file.absolutePath)
+                        newPlayer.prepare()
+                        newPlayer.setOnCompletionListener {
+                            stopPlayback()
                         }
-                    }.onSuccess {
-                        mediaPlayer = it
+                        newPlayer.start()
+
+                        mediaPlayer = newPlayer
                         isPlaying = true
-                    }.onFailure {
+                    } catch (exception: Exception) {
                         Toast.makeText(context, "مش قادرين نشغل التسجيل", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -429,7 +462,7 @@ private fun AudioPlaybackBar(
         }
 
         Text(
-            text = "0:00 / 0:${totalSeconds.toString().padStart(2, '0')}",
+            text = "0:00 / 0:${formatSeconds(totalSeconds)}",
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
@@ -457,4 +490,22 @@ private fun AudioPlaybackBar(
             tint = Color.White
         )
     }
+}
+
+private fun formatSeconds(seconds: Int): String {
+    return if (seconds < 10) {
+        "0$seconds"
+    } else {
+        seconds.toString()
+    }
+}
+
+private fun clampSeconds(seconds: Int): Int {
+    if (seconds < 1) {
+        return 1
+    }
+    if (seconds > MAX_RECORD_SECONDS) {
+        return MAX_RECORD_SECONDS
+    }
+    return seconds
 }
