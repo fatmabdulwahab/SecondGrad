@@ -10,7 +10,6 @@ import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 
 class HandLandmarkerHelper(
     private val context: Context,
-
     private val onLandmarksDetected: (List<Float>) -> Unit
 ) {
 
@@ -19,11 +18,14 @@ class HandLandmarkerHelper(
 
     fun setupHandLandmarker(): Boolean {
         return try {
-            val assetInputStream = context.assets.open("hand_landmarker.task")
-            assetInputStream.close()
+            val modelBuffer = HandModelProvider.openModelBuffer(context)
+            if (modelBuffer == null) {
+                handLandmarker = null
+                return false
+            }
 
             val baseOptions = BaseOptions.builder()
-                .setModelAssetPath("hand_landmarker.task")
+                .setModelAssetBuffer(modelBuffer)
                 .build()
 
             val options = HandLandmarker.HandLandmarkerOptions.builder()
@@ -56,15 +58,12 @@ class HandLandmarkerHelper(
         handLandmarker = null
     }
 
-
-
     private fun onResult(result: HandLandmarkerResult, inputImage: MPImage) {
-
         if (result.landmarks().size == 0) return
-        val now = System.currentTimeMillis()
-        if (now - lastSentTime < 1000) return // إرسال فريم كل ثانية
-        lastSentTime = now
 
+        val now = System.currentTimeMillis()
+        if (now - lastSentTime < 1000) return
+        lastSentTime = now
 
         val firstHand = result.landmarks()[0]
         val landmarks = mutableListOf<Float>()

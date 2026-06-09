@@ -53,13 +53,7 @@ fun CameraTranslationDialog(
     val context = LocalContext.current
 
     fun hasHandModelAsset(): Boolean {
-        return try {
-            val inputStream = context.assets.open("hand_landmarker.task")
-            inputStream.close()
-            true
-        } catch (throwable: Throwable) {
-            false
-        }
+        return HandModelProvider.isModelAvailable(context)
     }
 
     LaunchedEffect(sessionId) {
@@ -340,7 +334,7 @@ fun CameraTranslationDialog(
                                                 if (!hasHandModelAsset()) {
                                                     Toast.makeText(
                                                         context,
-                                                        "ملف hand_landmarker.task غير موجود داخل assets",
+                                                        "ملف تشغيل الكاميرا غير موجود. أعيدي تثبيت التطبيق أو Sync للمشروع",
                                                         Toast.LENGTH_LONG
                                                     ).show()
                                                     cameraUiState = CameraUiState.Initial

@@ -124,12 +124,25 @@ class RouteViewModel : ViewModel() {
                     ?: "تم إرسال الصوت بنجاح"
 
                 if (voiceResult != null) {
-                    if (hasText(voiceResult.origin)) {
-                        _fromText.value = voiceResult.origin
+                    var fromValue = voiceResult.origin
+                    var toValue = voiceResult.destination
+
+                    if (!hasText(fromValue) && !hasText(toValue) && hasText(voiceResult.transcription)) {
+                        val parsedRoute = parseRouteFromTranscription(voiceResult.transcription)
+                        fromValue = parsedRoute.first
+                        toValue = parsedRoute.second
                     }
 
-                    if (hasText(voiceResult.destination)) {
-                        _toText.value = voiceResult.destination
+                    if (!hasText(fromValue) && hasText(voiceResult.transcription)) {
+                        fromValue = voiceResult.transcription
+                    }
+
+                    if (hasText(fromValue)) {
+                        _fromText.value = fromValue
+                    }
+
+                    if (hasText(toValue)) {
+                        _toText.value = toValue
                     }
 
                     _uiState.value = _uiState.value.copy(
@@ -137,7 +150,11 @@ class RouteViewModel : ViewModel() {
                         toText = _toText.value
                     )
 
-                    message = "تم استخراج الرحلة من الصوت"
+                    message = if (hasText(fromValue) || hasText(toValue)) {
+                        "تم استخراج الرحلة من الصوت"
+                    } else {
+                        "تم إرسال الصوت لكن مفيش مكان واضح للرحلة"
+                    }
                 }
 
                 _voiceMessage.value = message
@@ -183,7 +200,7 @@ class RouteViewModel : ViewModel() {
             val destination = getJsonText(jsonObject, "destination")
             val status = getJsonText(jsonObject, "status")
 
-            if (!hasText(origin) && !hasText(destination)) {
+            if (!hasText(origin) && !hasText(destination) && !hasText(transcription)) {
                 null
             } else {
                 VoiceSearchResult(
@@ -199,10 +216,41 @@ class RouteViewModel : ViewModel() {
     }
 
     private fun getJsonText(jsonObject: JSONObject, key: String): String {
-        return if (jsonObject.has(key)) {
-            jsonObject.optString(key, "")
-        } else {
-            ""
+        if (!jsonObject.has(key) || jsonObject.isNull(key)) {
+            return ""
         }
+
+        val value = jsonObject.optString(key, "")
+        return if (value == "null") "" else value
+    }
+
+    private fun parseRouteFromTranscription(transcription: String): Pair<String, String> {
+        val fromMarker = "من "
+        val toMarkers = listOf(" إلى ", " الى ", " to ")
+
+        val fromIndex = transcription.indexOf(fromMarker)
+        if (fromIndex < 0) {
+            return Pair("", "")
+        }
+
+        val fromStart = fromIndex + fromMarker.length
+        var toIndex = -1
+        var toMarkerLength = 0
+
+        for (marker in toMarkers) {
+            val index = transcription.indexOf(marker, fromStart)
+            if (index >= 0 && (toIndex < 0 || index < toIndex)) {
+                toIndex = index
+                toMarkerLength = marker.length
+            }
+        }
+
+        if (toIndex < 0) {
+            return Pair(transcription.substring(fromStart).trim(), "")
+        }
+
+        val origin = transcription.substring(fromStart, toIndex).trim()
+        val destination = transcription.substring(toIndex + toMarkerLength).trim()
+        return Pair(origin, destination)
     }
 }
