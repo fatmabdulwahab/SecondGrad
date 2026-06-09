@@ -20,7 +20,15 @@ data class VoiceSearchResult(
     val transcription: String = "",
     val origin: String = "",
     val destination: String = "",
-    val status: String = ""
+    val status: String = "",
+    val errorDetail: String = ""
+)
+
+data class VoiceSendResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val status: String? = null,
+    val dataPayload: String? = null
 )
 
 data class SignUpRequest(

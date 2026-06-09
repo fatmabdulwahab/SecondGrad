@@ -143,20 +143,23 @@ fun VoiceRecorderPanel(
 
         recordingFlag.active = false
         isRecording = false
-        waitForRecordingThread()
 
         val activeRecorder = audioRecord
         if (activeRecorder != null) {
             try {
                 activeRecorder.stop()
-                stoppedDurationSeconds = currentDurationSeconds()
-                displaySeconds = stoppedDurationSeconds
             } catch (exception: Exception) {
                 deleteRecordedFile()
+                releaseRecorder()
+                recordingStartedAtMs = 0L
                 Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
+                return
             }
         }
 
+        waitForRecordingThread()
+        stoppedDurationSeconds = currentDurationSeconds()
+        displaySeconds = stoppedDurationSeconds
         releaseRecorder()
         recordingStartedAtMs = 0L
     }
@@ -764,7 +767,66 @@ private fun isRecordingReady(file: File, durationSeconds: Int, context: android.
         return false
     }
 
+    if (!isValidWavFile(file)) {
+        Toast.makeText(
+            context,
+            "ملف الصوت لسه بيتجهّز، استني ثانية وجربي تاني",
+            Toast.LENGTH_SHORT
+        ).show()
+        return false
+    }
+
     return true
+}
+
+private fun isValidWavFile(file: File): Boolean {
+    if (!file.name.endsWith(".wav")) {
+        return true
+    }
+
+    if (file.length() < 44L) {
+        return false
+    }
+
+    var input: FileInputStream? = null
+    return try {
+        input = FileInputStream(file)
+        val header = ByteArray(12)
+        val read = input.read(header)
+        if (read < 12) {
+            return false
+        }
+
+        val isRiff = header[0] == 'R'.code.toByte() &&
+            header[1] == 'I'.code.toByte() &&
+            header[2] == 'F'.code.toByte() &&
+            header[3] == 'F'.code.toByte()
+        val isWave = header[8] == 'W'.code.toByte() &&
+            header[9] == 'A'.code.toByte() &&
+            header[10] == 'V'.code.toByte() &&
+            header[11] == 'E'.code.toByte()
+        if (!isRiff || !isWave) {
+            return false
+        }
+
+        val chunkSize = (header[4].toInt() and 0xff) or
+            ((header[5].toInt() and 0xff) shl 8) or
+            ((header[6].toInt() and 0xff) shl 16) or
+            ((header[7].toInt() and 0xff) shl 24)
+        val expectedSize = chunkSize + 8L
+        val actualSize = file.length()
+        actualSize >= expectedSize - 4L && actualSize <= expectedSize + 4L
+    } catch (exception: Exception) {
+        false
+    } finally {
+        if (input != null) {
+            try {
+                input.close()
+            } catch (closeError: Exception) {
+                // Ignore close errors.
+            }
+        }
+    }
 }
 
 private fun clampSeconds(seconds: Int): Int {

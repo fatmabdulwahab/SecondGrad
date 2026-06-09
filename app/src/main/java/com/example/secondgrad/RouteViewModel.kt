@@ -146,34 +146,46 @@ class RouteViewModel : ViewModel() {
 
             try {
                 val response = repository.sendVoice(file)
-                val voiceResult = parseVoiceSearchResult(response.data)
+                val voiceResult = parseVoiceSearchResult(response.dataPayload)
                 message = response.message
                     ?: response.status
                     ?: "تم إرسال الصوت بنجاح"
 
                 if (voiceResult != null) {
-                    val fieldValues = buildVoiceFieldValues(voiceResult)
-                    applyVoiceFieldsToUi(fieldValues.origin, fieldValues.destination)
-
-                    val hasFrom = hasFilledLocationField(_fromText.value)
-                    val hasTo = hasFilledLocationField(_toText.value)
-                    message = if (hasFrom && hasTo) {
-                        val searchError = runRouteSearch(_fromText.value, _toText.value, showErrors = false)
-                        _closeVoicePanel.value = true
-                        if (searchError == null) {
-                            "تم استخراج الرحلة والبحث عن الطرق"
+                    if (hasText(voiceResult.errorDetail)) {
+                        message = if (containsAudioLoadError(voiceResult.errorDetail)) {
+                            "السيرفر مش قادر يقرأ ملف الصوت — استني ثانية بعد الإيقاف وجربي تاني"
                         } else {
-                            "تم استخراج الرحلة، لكن $searchError"
+                            "مش قادرين نفهم التسجيل: ${voiceResult.errorDetail}"
                         }
-                    } else if (hasFrom || hasTo) {
-                        "تم تعبئة الحقول من الصوت — راجعي From و To"
-                    } else if (hasText(voiceResult.transcription)) {
-                        "السيرفر سمع: ${voiceResult.transcription} — جرّبي بوضوح: من المعادي إلى رمسيس (3 ثواني)"
                     } else {
-                        "مش قادرين نفهم التسجيل، جرّبي تاني بوضوح"
+                        val fieldValues = buildVoiceFieldValues(voiceResult)
+                        applyVoiceFieldsToUi(fieldValues.origin, fieldValues.destination)
+
+                        val hasFrom = hasFilledLocationField(_fromText.value)
+                        val hasTo = hasFilledLocationField(_toText.value)
+                        message = if (hasFrom && hasTo) {
+                            val searchError = runRouteSearch(_fromText.value, _toText.value, showErrors = false)
+                            _closeVoicePanel.value = true
+                            if (searchError == null) {
+                                "تم استخراج الرحلة والبحث عن الطرق"
+                            } else {
+                                "تم استخراج الرحلة، لكن $searchError"
+                            }
+                        } else if (hasFrom || hasTo) {
+                            "تم تعبئة الحقول من الصوت — راجعي From و To"
+                        } else if (hasText(voiceResult.transcription)) {
+                            "السيرفر سمع: ${voiceResult.transcription} — جرّبي بوضوح: من المعادي إلى رمسيس (3 ثواني)"
+                        } else {
+                            "مش قادرين نفهم التسجيل، جرّبي تاني بوضوح"
+                        }
                     }
                 } else {
-                    message = "مفيش بيانات واضحة من الصوت، جرّبي تاني"
+                    message = if (response.success == true) {
+                        "السيرفر استلم الصوت لكن مفيش نص واضح — قولي: من المعادي إلى رمسيس (3 ثواني)"
+                    } else {
+                        "مفيش بيانات واضحة من الصوت، جرّبي تاني"
+                    }
                 }
             } catch (throwable: Throwable) {
                 message = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
@@ -268,15 +280,33 @@ class RouteViewModel : ViewModel() {
                 "End"
             )
             val status = getJsonText(jsonObject, "status", "Status")
+            val errorDetail = getJsonText(
+                jsonObject,
+                "detail",
+                "Detail",
+                "error",
+                "Error",
+                "errorMessage",
+                "ErrorMessage"
+            )
 
-            if (!hasText(origin) && !hasText(destination) && !hasText(transcription)) {
+            if (hasText(errorDetail) && !hasText(transcription) && !hasText(origin) && !hasText(destination)) {
+                VoiceSearchResult(
+                    transcription = "",
+                    origin = "",
+                    destination = "",
+                    status = status,
+                    errorDetail = errorDetail
+                )
+            } else if (!hasText(origin) && !hasText(destination) && !hasText(transcription)) {
                 null
             } else {
                 VoiceSearchResult(
                     transcription = transcription,
                     origin = origin,
                     destination = destination,
-                    status = status
+                    status = status,
+                    errorDetail = errorDetail
                 )
             }
         } catch (throwable: Throwable) {
@@ -490,6 +520,13 @@ class RouteViewModel : ViewModel() {
             index = index + 1
         }
         return builder.toString()
+    }
+
+    private fun containsAudioLoadError(value: String): Boolean {
+        val normalized = normalizeVoiceText(value)
+        return normalized.indexOf("audio load error") >= 0 ||
+            normalized.indexOf("format not recognised") >= 0 ||
+            normalized.indexOf("format not recognized") >= 0
     }
 
     private fun isIgnorableVoiceChar(char: Char): Boolean {
