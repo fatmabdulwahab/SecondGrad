@@ -80,7 +80,7 @@ class HandLandmarkerHelper(
     }
 
     private fun tryCreateFromCachedFile(): Boolean {
-        val modelFile = HandModelProvider.ensureModelFile(context) ?: return false
+        val modelFile = HandModelProvider.prepareModelFile(context) ?: return false
         val modelBuffer = HandModelProvider.readModelDirectBuffer(modelFile) ?: return false
 
         return try {

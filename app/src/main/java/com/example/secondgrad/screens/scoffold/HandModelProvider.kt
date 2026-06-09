@@ -23,8 +23,12 @@ object HandModelProvider {
 
     suspend fun ensureModelFile(context: Context): File? {
         return withContext(Dispatchers.IO) {
-            ensureModelFileBlocking(context)
+            prepareModelFile(context)
         }
+    }
+
+    fun prepareModelFile(context: Context): File? {
+        return ensureModelFileBlocking(context)
     }
 
     fun isModelAvailable(context: Context): Boolean {
