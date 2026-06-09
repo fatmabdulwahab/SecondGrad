@@ -152,34 +152,11 @@ class RouteViewModel : ViewModel() {
                     ?: "تم إرسال الصوت بنجاح"
 
                 if (voiceResult != null) {
-                    var fromValue = voiceResult.origin
-                    var toValue = voiceResult.destination
+                    val fieldValues = buildVoiceFieldValues(voiceResult)
+                    applyVoiceFieldsToUi(fieldValues.origin, fieldValues.destination)
 
-                    if (!hasText(fromValue) && !hasText(toValue) && isUsefulLocationText(voiceResult.transcription)) {
-                        val parsedRoute = parseRouteFromTranscription(voiceResult.transcription)
-                        fromValue = parsedRoute.origin
-                        toValue = parsedRoute.destination
-                    }
-
-                    if (!hasText(fromValue) && isUsefulLocationText(voiceResult.transcription)) {
-                        fromValue = voiceResult.transcription
-                    }
-
-                    if (hasText(fromValue) && isUsefulLocationText(fromValue)) {
-                        _fromText.value = fromValue
-                    }
-
-                    if (hasText(toValue) && isUsefulLocationText(toValue)) {
-                        _toText.value = toValue
-                    }
-
-                    _uiState.value = _uiState.value.copy(
-                        fromText = _fromText.value,
-                        toText = _toText.value
-                    )
-
-                    val hasFrom = isUsefulLocationText(_fromText.value)
-                    val hasTo = isUsefulLocationText(_toText.value)
+                    val hasFrom = hasFilledLocationField(_fromText.value)
+                    val hasTo = hasFilledLocationField(_toText.value)
                     message = if (hasFrom && hasTo) {
                         val searchError = runRouteSearch(_fromText.value, _toText.value, showErrors = false)
                         _closeVoicePanel.value = true
@@ -189,12 +166,14 @@ class RouteViewModel : ViewModel() {
                             "تم استخراج الرحلة، لكن $searchError"
                         }
                     } else if (hasFrom || hasTo) {
-                        "تم تعبئة جزء من الرحلة — أكملي الباقي أو سجّلي تاني"
+                        "تم تعبئة الحقول من الصوت — راجعي From و To"
                     } else if (hasText(voiceResult.transcription)) {
                         "سمعنا: ${voiceResult.transcription} — جرّبي تقولي: من [مكان] إلى [مكان]"
                     } else {
                         "مش قادرين نفهم التسجيل، جرّبي تاني بوضوح"
                     }
+                } else {
+                    message = "مفيش بيانات واضحة من الصوت، جرّبي تاني"
                 }
             } catch (throwable: Throwable) {
                 message = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
@@ -235,11 +214,59 @@ class RouteViewModel : ViewModel() {
             return null
         }
 
+        var payload = trimText(data)
+        var voiceResult = parseVoiceJsonObject(payload)
+        if (voiceResult != null) {
+            return voiceResult
+        }
+
+        if (payload.length > 1 && payload[0] == '"' && payload[payload.length - 1] == '"') {
+            payload = unwrapJsonString(payload)
+            voiceResult = parseVoiceJsonObject(payload)
+            if (voiceResult != null) {
+                return voiceResult
+            }
+        }
+
+        return null
+    }
+
+    private fun parseVoiceJsonObject(payload: String): VoiceSearchResult? {
         return try {
-            val jsonObject = JSONObject(data)
-            val transcription = getJsonText(jsonObject, "transcription", "Transcription", "text", "Text")
-            val origin = getJsonText(jsonObject, "origin", "Origin", "userLocation", "UserLocation", "from", "From")
-            val destination = getJsonText(jsonObject, "destination", "Destination", "to", "To")
+            val jsonObject = JSONObject(payload)
+            val transcription = getJsonText(
+                jsonObject,
+                "transcription",
+                "Transcription",
+                "text",
+                "Text",
+                "recognizedText",
+                "RecognizedText"
+            )
+            val origin = getJsonText(
+                jsonObject,
+                "origin",
+                "Origin",
+                "userLocation",
+                "UserLocation",
+                "from",
+                "From",
+                "startPoint",
+                "StartPoint",
+                "start",
+                "Start"
+            )
+            val destination = getJsonText(
+                jsonObject,
+                "destination",
+                "Destination",
+                "to",
+                "To",
+                "endPoint",
+                "EndPoint",
+                "end",
+                "End"
+            )
             val status = getJsonText(jsonObject, "status", "Status")
 
             if (!hasText(origin) && !hasText(destination) && !hasText(transcription)) {
@@ -255,6 +282,59 @@ class RouteViewModel : ViewModel() {
         } catch (throwable: Throwable) {
             null
         }
+    }
+
+    private fun unwrapJsonString(value: String): String {
+        return try {
+            JSONObject("{\"value\":$value}").getString("value")
+        } catch (throwable: Throwable) {
+            if (value.length > 2) {
+                value.substring(1, value.length - 1)
+            } else {
+                value
+            }
+        }
+    }
+
+    private fun buildVoiceFieldValues(voiceResult: VoiceSearchResult): ParsedVoiceRoute {
+        var fromValue = voiceResult.origin
+        var toValue = voiceResult.destination
+        val transcription = voiceResult.transcription
+
+        if (hasText(transcription) && !isFillerText(transcription)) {
+            val parsedRoute = parseRouteFromTranscription(transcription)
+            if (!hasText(fromValue) && hasText(parsedRoute.origin)) {
+                fromValue = parsedRoute.origin
+            }
+            if (!hasText(toValue) && hasText(parsedRoute.destination)) {
+                toValue = parsedRoute.destination
+            }
+            if (!hasText(fromValue) && !hasText(toValue)) {
+                fromValue = transcription
+            }
+        }
+
+        return ParsedVoiceRoute(fromValue, toValue)
+    }
+
+    private fun applyVoiceFieldsToUi(fromValue: String, toValue: String) {
+        if (canFillLocationField(fromValue)) {
+            onFromTextChange(fromValue)
+        }
+        if (canFillLocationField(toValue)) {
+            onToTextChange(toValue)
+        }
+    }
+
+    private fun hasFilledLocationField(value: String): Boolean {
+        return canFillLocationField(value)
+    }
+
+    private fun canFillLocationField(value: String): Boolean {
+        if (!hasText(value) || isFillerText(value)) {
+            return false
+        }
+        return normalizeVoiceText(value).length >= 2
     }
 
     private fun getJsonText(jsonObject: JSONObject, vararg keys: String): String {
@@ -278,36 +358,77 @@ class RouteViewModel : ViewModel() {
     )
 
     private fun parseRouteFromTranscription(transcription: String): ParsedVoiceRoute {
-        val fromMarker = "من "
-        val toMarkers = arrayOf(" إلى ", " الى ", " to ")
+        val text = trimText(transcription)
+        val fromMarkers = arrayOf("من ", "من")
+        val toMarkers = arrayOf(
+            " إلى ",
+            " الى ",
+            " إلى",
+            "إلى",
+            " الى",
+            "الى",
+            " to ",
+            " to"
+        )
 
-        val fromIndex = transcription.indexOf(fromMarker)
-        if (fromIndex < 0) {
-            return ParsedVoiceRoute("", "")
+        var fromIndex = -1
+        var fromMarkerLength = 0
+        var fromMarkerIndex = 0
+        while (fromMarkerIndex < fromMarkers.size) {
+            val marker = fromMarkers[fromMarkerIndex]
+            val index = text.indexOf(marker)
+            if (index >= 0 && (fromIndex < 0 || index < fromIndex)) {
+                fromIndex = index
+                fromMarkerLength = marker.length
+            }
+            fromMarkerIndex = fromMarkerIndex + 1
         }
 
-        val fromStart = fromIndex + fromMarker.length
-        var toIndex = -1
-        var toMarkerLength = 0
-        var markerIndex = 0
+        if (fromIndex >= 0) {
+            val fromStart = fromIndex + fromMarkerLength
+            var toIndex = -1
+            var toMarkerLength = 0
+            var markerIndex = 0
 
+            while (markerIndex < toMarkers.size) {
+                val marker = toMarkers[markerIndex]
+                val index = text.indexOf(marker, fromStart)
+                if (index >= 0 && (toIndex < 0 || index < toIndex)) {
+                    toIndex = index
+                    toMarkerLength = marker.length
+                }
+                markerIndex = markerIndex + 1
+            }
+
+            if (toIndex < 0) {
+                return ParsedVoiceRoute(trimText(text.substring(fromStart)), "")
+            }
+
+            val origin = trimText(text.substring(fromStart, toIndex))
+            val destination = trimText(text.substring(toIndex + toMarkerLength))
+            return ParsedVoiceRoute(origin, destination)
+        }
+
+        var splitIndex = -1
+        var splitLength = 0
+        var markerIndex = 0
         while (markerIndex < toMarkers.size) {
             val marker = toMarkers[markerIndex]
-            val index = transcription.indexOf(marker, fromStart)
-            if (index >= 0 && (toIndex < 0 || index < toIndex)) {
-                toIndex = index
-                toMarkerLength = marker.length
+            val index = text.indexOf(marker)
+            if (index > 0 && (splitIndex < 0 || index < splitIndex)) {
+                splitIndex = index
+                splitLength = marker.length
             }
             markerIndex = markerIndex + 1
         }
 
-        if (toIndex < 0) {
-            return ParsedVoiceRoute(trimText(transcription.substring(fromStart)), "")
+        if (splitIndex > 0) {
+            val origin = trimText(text.substring(0, splitIndex))
+            val destination = trimText(text.substring(splitIndex + splitLength))
+            return ParsedVoiceRoute(origin, destination)
         }
 
-        val origin = trimText(transcription.substring(fromStart, toIndex))
-        val destination = trimText(transcription.substring(toIndex + toMarkerLength))
-        return ParsedVoiceRoute(origin, destination)
+        return ParsedVoiceRoute("", "")
     }
 
     private fun trimText(value: String): String {
@@ -333,9 +454,9 @@ class RouteViewModel : ViewModel() {
         return if (start >= end) "" else value.substring(start, end)
     }
 
-    private fun isUsefulLocationText(value: String): Boolean {
+    private fun isFillerText(value: String): Boolean {
         if (!hasText(value)) {
-            return false
+            return true
         }
 
         val normalized = normalizeVoiceText(value)
@@ -343,12 +464,12 @@ class RouteViewModel : ViewModel() {
         var fillerIndex = 0
         while (fillerIndex < fillers.size) {
             if (normalized == fillers[fillerIndex]) {
-                return false
+                return true
             }
             fillerIndex = fillerIndex + 1
         }
 
-        return normalized.length >= 3
+        return false
     }
 
     private fun normalizeVoiceText(value: String): String {
