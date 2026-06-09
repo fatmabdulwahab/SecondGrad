@@ -42,7 +42,7 @@ fun NavigationGraph(navController: NavHostController){
         }
 
         composable("dashboard") {
-            DashboardScreen()
+            DashboardScreen(navController = navController)
         }
 
         composable("routes_screen") {

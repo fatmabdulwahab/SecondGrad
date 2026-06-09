@@ -7,9 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,22 +17,38 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -47,12 +63,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.example.secondgrad.DashboardStats
 import com.example.secondgrad.DashboardViewModel
 import com.example.secondgrad.RoleResponse
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    navController: NavHostController,
     viewModel: DashboardViewModel = viewModel()
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -61,57 +80,173 @@ fun DashboardScreen(
     val message by viewModel.message.collectAsState()
     val context = LocalContext.current
 
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var drawerOpenRequest by remember { mutableIntStateOf(0) }
+
+    var showAddRoleDialog by remember { mutableStateOf(false) }
+    var editingRole by remember { mutableStateOf<RoleResponse?>(null) }
+
     LaunchedEffect(message) {
-        message?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+        val currentMessage = message
+        if (currentMessage != null) {
+            Toast.makeText(context, currentMessage, Toast.LENGTH_SHORT).show()
             viewModel.clearMessage()
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF2F965D))
-            .padding(16.dp)
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    RolesSection(
-                        roles = roles,
-                        isLoading = isLoading,
-                        onDeleteRole = viewModel::deleteRole,
-                        modifier = Modifier.weight(1f)
-                    )
+    LaunchedEffect(drawerOpenRequest) {
+        if (drawerOpenRequest > 0) {
+            drawerState.open()
+        }
+    }
 
-                    StatsSection(
-                        stats = stats,
-                        isLoading = isLoading,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+    if (showAddRoleDialog) {
+        RoleNameDialog(
+            title = "إضافة صلاحية جديدة",
+            initialValue = "",
+            confirmLabel = "إضافة",
+            onDismiss = { showAddRoleDialog = false },
+            onConfirm = { roleName ->
+                viewModel.addRole(roleName)
+                showAddRoleDialog = false
             }
+        )
+    }
 
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+    val roleToEdit = editingRole
+    if (roleToEdit != null) {
+        RoleNameDialog(
+            title = "تعديل الصلاحية",
+            initialValue = roleDisplayName(roleToEdit),
+            confirmLabel = "حفظ",
+            onDismiss = { editingRole = null },
+            onConfirm = { roleName ->
+                viewModel.editRole(roleToEdit, roleName)
+                editingRole = null
+            }
+        )
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController
+            )
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Dashboard",
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { drawerOpenRequest = drawerOpenRequest + 1 }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu"
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.refresh() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh"
+                            )
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF2F965D))
+                    .padding(paddingValues)
+                    .padding(16.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
-                    StatsChartCard(
-                        stats = stats,
-                        modifier = Modifier.fillMaxWidth(0.52f)
-                    )
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
+                        ) {
+                            RolesSection(
+                                roles = roles,
+                                isLoading = isLoading,
+                                onAddRole = { showAddRoleDialog = true },
+                                onEditRole = { role -> editingRole = role },
+                                onDeleteRole = viewModel::deleteRole
+                            )
+
+                            StatsSection(
+                                stats = stats,
+                                isLoading = isLoading
+                            )
+                        }
+                    }
+
+                    item {
+                        StatsChartCard(
+                            stats = stats,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun RoleNameDialog(
+    title: String,
+    initialValue: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var roleName by remember(initialValue) { mutableStateOf(initialValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = title, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            OutlinedTextField(
+                value = roleName,
+                onValueChange = { roleName = it },
+                label = { Text("اسم الصلاحية") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(roleName) }) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("إلغاء")
+            }
+        }
+    )
+}
+
+private fun roleDisplayName(role: RoleResponse): String {
+    val name = role.name
+    return if (name == null) "" else name
 }
 
 @Composable
@@ -173,15 +308,6 @@ private fun StatsSection(
                     Spacer(modifier = Modifier.height(18.dp))
                     CircularProgressIndicator(color = Color(0xFF2F965D))
                 } else {
-                    Text(
-                        text = "...جاري التحديث",
-                        color = Color(0xFF2F965D),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -229,6 +355,8 @@ private fun StatCircle(
 private fun RolesSection(
     roles: List<RoleResponse>,
     isLoading: Boolean,
+    onAddRole: () -> Unit,
+    onEditRole: (RoleResponse) -> Unit,
     onDeleteRole: (RoleResponse) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -267,10 +395,11 @@ private fun RolesSection(
                         textAlign = TextAlign.Center
                     )
                 } else {
-                    roles.forEachIndexed { index, role ->
+                    for (index in roles.indices) {
                         RoleRow(
                             index = index + 1,
-                            role = role,
+                            role = roles[index],
+                            onEditRole = onEditRole,
                             onDeleteRole = onDeleteRole
                         )
                     }
@@ -281,12 +410,12 @@ private fun RolesSection(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { },
+            onClick = onAddRole,
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9233)),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.height(48.dp)
         ) {
-            androidx.compose.material3.Icon(
+            Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
                 tint = Color.White
@@ -321,6 +450,7 @@ private fun RolesTableHeader() {
 private fun RoleRow(
     index: Int,
     role: RoleResponse,
+    onEditRole: (RoleResponse) -> Unit,
     onDeleteRole: (RoleResponse) -> Unit
 ) {
     Row(
@@ -337,7 +467,7 @@ private fun RoleRow(
         )
 
         Text(
-            text = role.name.orEmpty(),
+            text = roleDisplayName(role),
             color = Color(0xFF2F965D),
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -353,7 +483,7 @@ private fun RoleRow(
             SmallActionButton(
                 text = "تعديل",
                 color = Color(0xFF2F965D),
-                onClick = { }
+                onClick = { onEditRole(role) }
             )
             Spacer(modifier = Modifier.width(8.dp))
             SmallActionButton(
@@ -377,7 +507,7 @@ private fun SmallActionButton(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(containerColor = color),
         shape = RoundedCornerShape(8.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp),
         modifier = Modifier.height(28.dp)
     ) {
         Text(text = text, color = Color.White, fontSize = 12.sp)
@@ -399,8 +529,7 @@ private fun StatsChartCard(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(8.dp),
-        modifier = modifier
-            .height(330.dp)
+        modifier = modifier.height(330.dp)
     ) {
         Box(
             modifier = Modifier
@@ -423,7 +552,15 @@ private fun DashboardLineChart(
     val green = Color(0xFF2F965D)
     val orange = Color(0xFFFF9233)
     val axis = Color(0xFFD1D5DB)
-    val maxValue = items.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+
+    var maxValue = 1
+    for (item in items) {
+        if (item.second > maxValue) {
+            maxValue = item.second
+        }
+    }
+
+    val pointCount = if (items.size > 1) items.size - 1 else 1
 
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -447,15 +584,21 @@ private fun DashboardLineChart(
                 strokeWidth = 3.dp.toPx()
             )
 
-            val points = items.mapIndexed { index, item ->
-                val x = left + (width / (items.lastIndex.coerceAtLeast(1))) * index
+            val points = java.util.ArrayList<Offset>()
+            for (index in items.indices) {
+                val item = items[index]
+                val x = left + (width / pointCount) * index
                 val y = bottom - ((item.second / maxValue.toFloat()) * height)
-                Offset(x, y)
+                points.add(Offset(x, y))
             }
 
-            val path = Path().apply {
-                points.forEachIndexed { index, point ->
-                    if (index == 0) moveTo(point.x, point.y) else lineTo(point.x, point.y)
+            val path = Path()
+            for (index in points.indices) {
+                val point = points[index]
+                if (index == 0) {
+                    path.moveTo(point.x, point.y)
+                } else {
+                    path.lineTo(point.x, point.y)
                 }
             }
 
@@ -465,8 +608,8 @@ private fun DashboardLineChart(
                 style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
             )
 
-            points.forEach {
-                drawCircle(color = green, radius = 9.dp.toPx(), center = it)
+            for (point in points) {
+                drawCircle(color = green, radius = 9.dp.toPx(), center = point)
             }
         }
 
@@ -477,7 +620,7 @@ private fun DashboardLineChart(
                 .padding(start = 32.dp),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            items.forEach { item ->
+            for (item in items) {
                 Text(
                     text = item.first,
                     color = green,
@@ -493,7 +636,7 @@ private fun DashboardLineChart(
                 .padding(top = 32.dp, start = 32.dp),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            items.forEach { item ->
+            for (item in items) {
                 Text(
                     text = item.second.toString(),
                     color = green,

@@ -22,6 +22,14 @@ class DashboardRepository {
         return api.getAllRoles().asRoles()
     }
 
+    suspend fun addRole(roleName: String): RoleResponse {
+        return api.addRole(request = RoleNameRequest(roleName = roleName))
+    }
+
+    suspend fun editRole(id: Int, name: String): RoleResponse {
+        return api.editRole(request = EditRoleRequest(id = id, name = name))
+    }
+
     suspend fun deleteRole(id: Int) {
         api.deleteRole(id = id)
     }
@@ -35,7 +43,7 @@ class DashboardRepository {
             val obj = asJsonObject
             val possibleKeys = listOf("count", "data", "value", "total", "usersCount", "tripsCount", "feedbacksCount")
 
-            possibleKeys.forEach { key ->
+            for (key in possibleKeys) {
                 val value = obj.get(key)
                 if (value != null && value.isJsonPrimitive && value.asJsonPrimitive.isNumber) {
                     return value.asInt
@@ -53,18 +61,26 @@ class DashboardRepository {
             else -> return java.util.ArrayList<RoleResponse>()
         }
 
-        return rolesArray.mapIndexedNotNull { index, element ->
-            if (!element.isJsonObject) return@mapIndexedNotNull null
+        val roles = java.util.ArrayList<RoleResponse>()
+        var index = 0
+        for (element in rolesArray) {
+            if (!element.isJsonObject) {
+                index = index + 1
+                continue
+            }
 
             val obj = element.asJsonObject
-            RoleResponse(
-                id = obj.get("id")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt
-                    ?: index + 1,
-                name = obj.get("name")?.takeIf { it.isJsonPrimitive }?.asString
-                    ?: obj.get("roleName")?.takeIf { it.isJsonPrimitive }?.asString
-                    ?: obj.get("normalizedName")?.takeIf { it.isJsonPrimitive }?.asString
-            )
+            val roleId = obj.get("id")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }?.asInt
+                ?: (index + 1)
+            val roleName = obj.get("name")?.takeIf { it.isJsonPrimitive }?.asString
+                ?: obj.get("roleName")?.takeIf { it.isJsonPrimitive }?.asString
+                ?: obj.get("normalizedName")?.takeIf { it.isJsonPrimitive }?.asString
+
+            roles.add(RoleResponse(id = roleId, name = roleName))
+            index = index + 1
         }
+
+        return roles
     }
 }
 

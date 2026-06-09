@@ -20,7 +20,6 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import com.example.secondgrad.screens.FilterSection
 import com.example.secondgrad.screens.busCard.BusScreen
-import kotlinx.coroutines.launch
 import com.example.secondgrad.RouteViewModel
 import androidx.compose.runtime.collectAsState
 
@@ -30,14 +29,20 @@ import androidx.compose.runtime.collectAsState
 fun ScaffoldScreen(navController: NavController) {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    var drawerOpenRequest by remember { mutableIntStateOf(0) }
     val routeViewModel: RouteViewModel = viewModel()
     val routes by routeViewModel.routes.collectAsState()
     val fromText by routeViewModel.fromText.collectAsState()
     val toText by routeViewModel.toText.collectAsState()
     val isLoading by routeViewModel.isLoading.collectAsState()
 
-   var selectedFilter by remember { mutableStateOf("الكل") }
+    LaunchedEffect(drawerOpenRequest) {
+        if (drawerOpenRequest > 0) {
+            drawerState.open()
+        }
+    }
+
+    var selectedFilter by remember { mutableStateOf("الكل") }
     val filteredRoutes = remember(routes, selectedFilter) {
         when (selectedFilter) {
             "باص" -> routes.filter { route ->
@@ -54,8 +59,10 @@ fun ScaffoldScreen(navController: NavController) {
         drawerState = drawerState,
         drawerContent = {
             // استدعاء الدالة الموحدة للقائمة الجانبية
-            AppDrawer(scope = scope, drawerState = drawerState,
-                navController = navController as NavHostController)
+            AppDrawer(
+                drawerState = drawerState,
+                navController = navController as NavHostController
+            )
         }
     ) {
         Scaffold(
@@ -63,7 +70,7 @@ fun ScaffoldScreen(navController: NavController) {
                 CenterAlignedTopAppBar(
                     title = { Text(text = "Home", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        IconButton(onClick = { drawerOpenRequest = drawerOpenRequest + 1 }) {
                             Icon(imageVector = Icons.Default.Menu, contentDescription = null)
                         }
                     }
