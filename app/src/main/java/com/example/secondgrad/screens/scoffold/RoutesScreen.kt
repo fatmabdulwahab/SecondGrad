@@ -16,10 +16,14 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -106,34 +110,37 @@ fun BusRoutesScreen() {
                 defaultElevation = 8.dp
             )
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
-                    .horizontalScroll(scrollState)
-            ) {
-                Text(
-                    text = "خطوط السير المتاحة",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2E8B57),
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Column(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(vertical = 12.dp)
-                )
-
-                TableRow(
-                    cells = tableHeaderCells(),
-                    isHeader = true
-                )
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f)
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .horizontalScroll(scrollState)
                 ) {
-                    items(routes) { route ->
-                        TableRow(
-                            cells = routeCells(route)
-                        )
+                    Text(
+                        text = "خطوط السير المتاحة",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2E8B57),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(vertical = 12.dp)
+                    )
+
+                    TableRow(
+                        cells = tableHeaderCells(),
+                        isHeader = true
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(routes) { route ->
+                            TableRow(
+                                cells = routeCells(route)
+                            )
+                        }
                     }
                 }
             }
@@ -191,7 +198,8 @@ fun TableRow(cells: java.util.ArrayList<String>, isHeader: Boolean = false) {
                         index == 6 || index == 7 -> Color(0xFF2E8B57)
                         else -> Color.Black
                     },
-                    maxLines = 1
+                    textAlign = TextAlign.Center,
+                    maxLines = if (index == 4) 3 else 1
                 )
             }
 
