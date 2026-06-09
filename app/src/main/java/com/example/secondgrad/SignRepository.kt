@@ -1,12 +1,28 @@
 package com.example.secondgrad
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.util.UUID
 
 class SignRepository {
 
-    fun createSession(): CreateSessionResponse {
-        val sessionId = UUID.randomUUID().toString()
-        return CreateSessionResponse(session_id = sessionId)
+    private val httpClient = OkHttpClient()
+
+    suspend fun createSession(): CreateSessionResponse {
+        return withContext(Dispatchers.IO) {
+            val apiSession = requestTransGuideSession()
+            if (apiSession.resolvedSessionId().length > 0) {
+                return@withContext apiSession
+            }
+
+            val localSessionId = UUID.randomUUID().toString()
+            CreateSessionResponse(session_id = localSessionId)
+        }
     }
 
     suspend fun recognize(
@@ -18,8 +34,75 @@ class SignRepository {
     suspend fun endSession(
         sessionId: String
     ) {
-        if (sessionId.length > 0) {
-            RetrofitInstance.api.endSession(sessionId)
+        if (sessionId.length == 0) {
+            return
         }
+
+        withContext(Dispatchers.IO) {
+            var endedOnTransGuide = false
+
+            try {
+                val request = Request.Builder()
+                    .url("$TRANSGUIDE_BASE_URL/api/Sign/end/$sessionId")
+                    .post(ByteArray(0).toRequestBody(null))
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                endedOnTransGuide = response.isSuccessful
+                response.close()
+            } catch (throwable: Throwable) {
+                endedOnTransGuide = false
+            }
+
+            if (!endedOnTransGuide) {
+                try {
+                    RetrofitInstance.api.endSession(sessionId)
+                } catch (throwable: Throwable) {
+                    // Ignore cleanup errors from the fallback recognizer API.
+                }
+            }
+        }
+    }
+
+    private fun requestTransGuideSession(): CreateSessionResponse {
+        return try {
+            val request = Request.Builder()
+                .url("$TRANSGUIDE_BASE_URL/api/Sign/create")
+                .post("{}".toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string() ?: ""
+
+            if (!response.isSuccessful || responseBody.length == 0) {
+                return CreateSessionResponse()
+            }
+
+            parseCreateSessionResponse(responseBody)
+        } catch (throwable: Throwable) {
+            CreateSessionResponse()
+        }
+    }
+
+    private fun parseCreateSessionResponse(body: String): CreateSessionResponse {
+        return try {
+            val root = JSONObject(body)
+            val sessionId = root.optString("sessionId", "")
+            val sessionIdSnake = root.optString("session_id", "")
+            val success = root.optBoolean("success", false)
+
+            CreateSessionResponse(
+                sessionId = sessionId,
+                session_id = sessionIdSnake,
+                success = success
+            )
+        } catch (throwable: Throwable) {
+            CreateSessionResponse()
+        }
+    }
+
+    companion object {
+        private const val TRANSGUIDE_BASE_URL = "https://transguideapi.runasp.net"
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

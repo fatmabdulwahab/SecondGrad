@@ -32,7 +32,13 @@ class SignViewModel : ViewModel() {
     suspend fun createSessionForCamera(): Boolean {
         return try {
             val response = repository.createSession()
-            _sessionId.value = response.session_id
+            val session = response.resolvedSessionId()
+            if (session.length == 0) {
+                _errorMessage.value = "مش قادرين نبدأ جلسة الكاميرا"
+                return false
+            }
+
+            _sessionId.value = session
             _prediction.value = ""
             _currentWord.value = ""
             _errorMessage.value = null
@@ -59,7 +65,7 @@ class SignViewModel : ViewModel() {
             }
 
             val response = repository.createSession()
-            _sessionId.value = response.session_id
+            _sessionId.value = response.resolvedSessionId()
         }
     }
 

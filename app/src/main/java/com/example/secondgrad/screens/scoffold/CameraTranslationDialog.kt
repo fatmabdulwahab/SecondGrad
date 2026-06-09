@@ -1,7 +1,11 @@
 package com.example.secondgrad.screens.scoffold
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -29,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.secondgrad.SignViewModel
 import kotlinx.coroutines.delay
@@ -43,7 +48,6 @@ fun CameraTranslationDialog(
 
     val prediction by viewModel.prediction.collectAsState()
     val currentWord by viewModel.currentWord.collectAsState()
-    val sessionId by viewModel.sessionId.collectAsState()
     val cameraError by viewModel.errorMessage.collectAsState()
     var cameraUiState by remember { mutableStateOf(CameraUiState.Initial) }
     val scope = rememberCoroutineScope()
@@ -53,9 +57,55 @@ fun CameraTranslationDialog(
         return HandModelProvider.isModelAvailable(context)
     }
 
-    LaunchedEffect(sessionId) {
-        if (sessionId.length > 0) {
+    fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun startCameraSession() {
+        scope.launch {
+            if (!hasHandModelAsset()) {
+                Toast.makeText(
+                    context,
+                    "ملف تشغيل الكاميرا غير موجود. أعيدي تثبيت التطبيق أو Sync للمشروع",
+                    Toast.LENGTH_LONG
+                ).show()
+                cameraUiState = CameraUiState.Initial
+                return@launch
+            }
+
+            cameraUiState = CameraUiState.CreatingSession
+
+            val isSessionCreated = viewModel.createSessionForCamera()
+            if (!isSessionCreated) {
+                cameraUiState = CameraUiState.Initial
+                return@launch
+            }
+
+            cameraUiState = CameraUiState.ConnectingServer
+            delay(400)
+
+            cameraUiState = CameraUiState.StartingCamera
+            delay(400)
+
             cameraUiState = CameraUiState.Ready
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startCameraSession()
+        } else {
+            Toast.makeText(
+                context,
+                "اسمحي بصلاحية الكاميرا عشان تبدئي الترجمة",
+                Toast.LENGTH_SHORT
+            ).show()
+            cameraUiState = CameraUiState.Initial
         }
     }
 
@@ -321,32 +371,10 @@ fun CameraTranslationDialog(
 
                                     Button(
                                         onClick = {
-                                            scope.launch {
-                                                if (!hasHandModelAsset()) {
-                                                    Toast.makeText(
-                                                        context,
-                                                        "ملف تشغيل الكاميرا غير موجود. أعيدي تثبيت التطبيق أو Sync للمشروع",
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
-                                                    cameraUiState = CameraUiState.Initial
-                                                    return@launch
-                                                }
-
-                                                cameraUiState = CameraUiState.CreatingSession
-
-                                                val isSessionCreated = viewModel.createSessionForCamera()
-                                                if (!isSessionCreated) {
-                                                    cameraUiState = CameraUiState.Initial
-                                                    return@launch
-                                                }
-
-                                                cameraUiState = CameraUiState.ConnectingServer
-                                                delay(400)
-
-                                                cameraUiState = CameraUiState.StartingCamera
-                                                delay(400)
-
-                                                cameraUiState = CameraUiState.Ready
+                                            if (hasCameraPermission()) {
+                                                startCameraSession()
+                                            } else {
+                                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                             }
                                         },
                                         modifier = Modifier

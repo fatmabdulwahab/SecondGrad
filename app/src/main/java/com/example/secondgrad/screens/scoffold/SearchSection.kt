@@ -1,14 +1,18 @@
 package com.example.secondgrad.screens.scoffold
 
 
+import android.Manifest
 import android.annotation.SuppressLint
 import com.example.secondgrad.R
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.example.secondgrad.RouteViewModel
 
@@ -52,6 +57,34 @@ fun SearchSection(viewModel: RouteViewModel) {
         textAlign = TextAlign.End,
         textDirection = TextDirection.ContentOrRtl
     )
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            isCameraActive = true
+        } else {
+            Toast.makeText(context, "اسمحي بصلاحية الكاميرا الأول", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun openCameraDialog() {
+        if (activity == null) {
+            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasCameraPermission) {
+            isCameraActive = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     LaunchedEffect(errorMessage) {
         val message = errorMessage
@@ -104,7 +137,7 @@ fun SearchSection(viewModel: RouteViewModel) {
             VoiceRecorderPanel(
                 isSending = isVoiceSending,
                 onSendVoice = viewModel::sendVoice,
-                onCameraClick = { isCameraActive = true },
+                onCameraClick = { openCameraDialog() },
                 onDeleteRecording = { isVoiceActive = false }
             )
         } else {
@@ -130,8 +163,8 @@ fun SearchSection(viewModel: RouteViewModel) {
                 }
             )
         } else if (isCameraActive) {
-            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
             isCameraActive = false
+            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
         }
 
         // حقل نص (From)
