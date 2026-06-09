@@ -68,6 +68,19 @@ import com.example.secondgrad.DashboardStats
 import com.example.secondgrad.DashboardViewModel
 import com.example.secondgrad.RoleResponse
 
+private data class ChartStatItem(
+    val label: String,
+    val value: Int
+)
+
+private fun buildChartItems(stats: DashboardStats): java.util.ArrayList<ChartStatItem> {
+    val items = java.util.ArrayList<ChartStatItem>()
+    items.add(ChartStatItem("التقييمات", stats.feedbacksCount))
+    items.add(ChartStatItem("الرحلات", stats.tripsCount))
+    items.add(ChartStatItem("المستخدمين", stats.usersCount))
+    return items
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -395,13 +408,15 @@ private fun RolesSection(
                         textAlign = TextAlign.Center
                     )
                 } else {
-                    for (index in roles.indices) {
+                    var roleIndex = 0
+                    while (roleIndex < roles.size) {
                         RoleRow(
-                            index = index + 1,
-                            role = roles[index],
+                            index = roleIndex + 1,
+                            role = roles[roleIndex],
                             onEditRole = onEditRole,
                             onDeleteRole = onDeleteRole
                         )
+                        roleIndex = roleIndex + 1
                     }
                 }
             }
@@ -519,11 +534,7 @@ private fun StatsChartCard(
     stats: DashboardStats,
     modifier: Modifier = Modifier
 ) {
-    val chartItems = listOf(
-        "التقييمات" to stats.feedbacksCount,
-        "الرحلات" to stats.tripsCount,
-        "المستخدمين" to stats.usersCount
-    )
+    val chartItems = buildChartItems(stats)
 
     Card(
         shape = RoundedCornerShape(14.dp),
@@ -546,7 +557,7 @@ private fun StatsChartCard(
 
 @Composable
 private fun DashboardLineChart(
-    items: List<Pair<String, Int>>,
+    items: java.util.ArrayList<ChartStatItem>,
     modifier: Modifier = Modifier
 ) {
     val green = Color(0xFF2F965D)
@@ -554,10 +565,13 @@ private fun DashboardLineChart(
     val axis = Color(0xFFD1D5DB)
 
     var maxValue = 1
-    for (item in items) {
-        if (item.second > maxValue) {
-            maxValue = item.second
+    var itemIndex = 0
+    while (itemIndex < items.size) {
+        val item = items[itemIndex]
+        if (item.value > maxValue) {
+            maxValue = item.value
         }
+        itemIndex = itemIndex + 1
     }
 
     val pointCount = if (items.size > 1) items.size - 1 else 1
@@ -585,21 +599,25 @@ private fun DashboardLineChart(
             )
 
             val points = java.util.ArrayList<Offset>()
-            for (index in items.indices) {
-                val item = items[index]
-                val x = left + (width / pointCount) * index
-                val y = bottom - ((item.second / maxValue.toFloat()) * height)
+            var chartIndex = 0
+            while (chartIndex < items.size) {
+                val item = items[chartIndex]
+                val x = left + (width / pointCount) * chartIndex
+                val y = bottom - ((item.value / maxValue.toFloat()) * height)
                 points.add(Offset(x, y))
+                chartIndex = chartIndex + 1
             }
 
             val path = Path()
-            for (index in points.indices) {
-                val point = points[index]
-                if (index == 0) {
+            var pointIndex = 0
+            while (pointIndex < points.size) {
+                val point = points[pointIndex]
+                if (pointIndex == 0) {
                     path.moveTo(point.x, point.y)
                 } else {
                     path.lineTo(point.x, point.y)
                 }
+                pointIndex = pointIndex + 1
             }
 
             drawPath(
@@ -608,8 +626,10 @@ private fun DashboardLineChart(
                 style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
             )
 
-            for (point in points) {
-                drawCircle(color = green, radius = 9.dp.toPx(), center = point)
+            var circleIndex = 0
+            while (circleIndex < points.size) {
+                drawCircle(color = green, radius = 9.dp.toPx(), center = points[circleIndex])
+                circleIndex = circleIndex + 1
             }
         }
 
@@ -620,13 +640,15 @@ private fun DashboardLineChart(
                 .padding(start = 32.dp),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            for (item in items) {
+            var labelIndex = 0
+            while (labelIndex < items.size) {
                 Text(
-                    text = item.first,
+                    text = items[labelIndex].label,
                     color = green,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
+                labelIndex = labelIndex + 1
             }
         }
 
@@ -636,13 +658,15 @@ private fun DashboardLineChart(
                 .padding(top = 32.dp, start = 32.dp),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
-            for (item in items) {
+            var valueIndex = 0
+            while (valueIndex < items.size) {
                 Text(
-                    text = item.second.toString(),
+                    text = items[valueIndex].value.toString(),
                     color = green,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
+                valueIndex = valueIndex + 1
             }
         }
     }
