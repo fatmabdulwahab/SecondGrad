@@ -1,52 +1,54 @@
 package com.example.secondgrad.screens.scoffold
 
-import android.R.color.black
-import android.hardware.camera2.params.BlackLevelPattern
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color.Companion.Black
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.secondgrad.R
+
+private fun sampleQuestions(): java.util.ArrayList<String> {
+    val questions = java.util.ArrayList<String>()
+    questions.add("هل لازم أكون عامل حساب أو تسجيل دخول؟")
+    questions.add("هل النظام بيدعم مناطق معينة بس؟")
+    questions.add("هل أقدر أشوف تفاصيل عن الرحلة؟")
+    questions.add("هل البيانات دقيقة؟")
+    questions.add("طيب ايه الحاجة اللى بتميزنا؟")
+    questions.add("طيب ايه انواع المواصلات المتاحة؟")
+    return questions
+}
 
 @Composable
 fun CommonQuestionScreen() {
-
-    val questions = listOf(
-        "هل لازم أكون عامل حساب أو تسجيل دخول؟",
-        "هل النظام بيدعم مناطق معينة بس؟",
-        "هل أقدر أشوف تفاصيل عن الرحلة؟",
-        "هل البيانات دقيقة؟",
-        "طيب ايه الحاجة اللى بتميزنا؟",
-        "طيب ايه انواع المواصلات المتاحة؟"
-    )
-
-    // اللون المطلوب
+    val questions = sampleQuestions()
     val primaryGreen = Color(0xFF00875A)
-    val lightGray = Color(0xFFE2E8F0)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(color = Color(0xFF00875A))
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()), // إضافة تمرير في حال كانت الشاشة طويلة
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
-        // العنوان
         Text(
             text = "اكثر الاسئلة الشائعة؟",
             color = Color.White,
@@ -55,7 +57,6 @@ fun CommonQuestionScreen() {
             modifier = Modifier.padding(top = 50.dp, bottom = 8.dp)
         )
 
-        // فاصل أصفر
         Box(
             modifier = Modifier
                 .width(155.dp)
@@ -73,13 +74,15 @@ fun CommonQuestionScreen() {
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                questions.forEachIndexed { index, question ->
+                var questionIndex = 0
+                while (questionIndex < questions.size) {
+                    val question = questions[questionIndex]
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // مربع السؤال الأخضر
                         Box(
                             modifier = Modifier
                                 .background(color = primaryGreen, shape = RoundedCornerShape(8.dp))
@@ -93,7 +96,6 @@ fun CommonQuestionScreen() {
                             )
                         }
 
-                        // أيقونة الزائد
                         Text(
                             text = "+",
                             color = primaryGreen,
@@ -103,17 +105,18 @@ fun CommonQuestionScreen() {
                         )
                     }
 
-                    // خط فاصل بين الأسئلة
-                    if (index < questions.lastIndex) {
+                    if (questionIndex < questions.size - 1) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.dp)
-                                .background(Black)
+                                .background(Color.Black)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+
+                    questionIndex = questionIndex + 1
                 }
             }
         }
