@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
 private const val MAX_RECORD_SECONDS = 10
 private const val MIN_RECORD_SECONDS = 2
@@ -74,10 +77,13 @@ fun VoiceRecorderPanel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val currentIsSending by rememberUpdatedState(isSending)
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
-    var elapsedSeconds by remember { mutableIntStateOf(0) }
+    var displaySeconds by remember { mutableIntStateOf(0) }
+    var stoppedDurationSeconds by remember { mutableIntStateOf(0) }
+    var recordingStartedAtMs by remember { mutableStateOf(0L) }
     var shouldStartAfterPermission by remember { mutableStateOf(false) }
 
     fun releaseRecorder() {
@@ -94,7 +100,16 @@ fun VoiceRecorderPanel(
             file.delete()
         }
         recordedFile = null
-        elapsedSeconds = 0
+        displaySeconds = 0
+        stoppedDurationSeconds = 0
+        recordingStartedAtMs = 0L
+    }
+
+    fun currentDurationSeconds(): Int {
+        if (recordingStartedAtMs > 0L) {
+            return elapsedSecondsSince(recordingStartedAtMs)
+        }
+        return stoppedDurationSeconds
     }
 
     fun stopRecording() {
@@ -105,17 +120,25 @@ fun VoiceRecorderPanel(
 
         try {
             activeRecorder.stop()
+            stoppedDurationSeconds = currentDurationSeconds()
+            displaySeconds = stoppedDurationSeconds
         } catch (exception: Exception) {
             deleteRecordedFile()
             Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
         }
 
         releaseRecorder()
+        recordingStartedAtMs = 0L
         isRecording = false
     }
 
     fun startRecording() {
+        if (isSending) {
+            return
+        }
+
         releaseRecorder()
+        deleteRecordedFile()
 
         val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
         val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -137,7 +160,9 @@ fun VoiceRecorderPanel(
 
             recorder = mediaRecorder
             recordedFile = outputFile
-            elapsedSeconds = 0
+            recordingStartedAtMs = System.currentTimeMillis()
+            displaySeconds = 0
+            stoppedDurationSeconds = 0
             isRecording = true
         } catch (exception: Exception) {
             mediaRecorder.release()
@@ -158,6 +183,10 @@ fun VoiceRecorderPanel(
     }
 
     fun requestRecording() {
+        if (isSending) {
+            return
+        }
+
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
@@ -172,14 +201,14 @@ fun VoiceRecorderPanel(
         recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    LaunchedEffect(isRecording) {
-        while (isRecording) {
-            delay(1000)
-            elapsedSeconds += 1
-
-            if (elapsedSeconds >= MAX_RECORD_SECONDS) {
+    LaunchedEffect(isRecording, recordingStartedAtMs) {
+        while (isRecording && recordingStartedAtMs > 0L) {
+            displaySeconds = elapsedSecondsSince(recordingStartedAtMs)
+            if (displaySeconds >= MAX_RECORD_SECONDS) {
                 stopRecording()
+                break
             }
+            delay(250)
         }
     }
 
@@ -199,7 +228,7 @@ fun VoiceRecorderPanel(
             releaseRecorder()
 
             val file = recordedFile
-            if (file != null) {
+            if (file != null && !currentIsSending) {
                 file.delete()
             }
         }
@@ -211,17 +240,24 @@ fun VoiceRecorderPanel(
     ) {
         if (isRecording) {
             RecordingControls(
-                elapsedSeconds = elapsedSeconds,
+                elapsedSeconds = displaySeconds,
                 onStopClick = ::stopRecording
             )
         } else {
             StoppedControls(
                 recordedFile = recordedFile,
                 isSending = isSending,
-                elapsedSeconds = elapsedSeconds,
+                durationSeconds = stoppedDurationSeconds,
                 onRecordAgain = { requestRecording() },
                 onCameraClick = onCameraClick,
-                onSendVoice = onSendVoice,
+                onSendVoice = { file ->
+                    val uploadCopy = copyVoiceFileForUpload(file, context.cacheDir)
+                    if (uploadCopy != null) {
+                        onSendVoice(uploadCopy)
+                    } else {
+                        Toast.makeText(context, "مش قادرين نجهّز التسجيل للإرسال", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onDelete = {
                     deleteRecordedFile()
                     onDeleteRecording()
@@ -283,13 +319,16 @@ private fun RecordingControls(
 private fun StoppedControls(
     recordedFile: File?,
     isSending: Boolean,
-    elapsedSeconds: Int,
+    durationSeconds: Int,
     onRecordAgain: () -> Unit,
     onCameraClick: () -> Unit,
     onSendVoice: (File) -> Unit,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
+    val canSend = recordedFile != null
+        && !isSending
+        && durationSeconds >= MIN_RECORD_SECONDS
 
     Row(
         modifier = Modifier
@@ -310,10 +349,11 @@ private fun StoppedControls(
         Spacer(modifier = Modifier.width(10.dp))
 
         Text(
-            text = if (recordedFile == null) {
-                "اضغطي المايك وقولي: من [مكان] إلى [مكان]"
-            } else {
-                "التسجيل جاهز للإرسال"
+            text = when {
+                isSending -> "جاري إرسال التسجيل..."
+                recordedFile == null -> "اضغطي المايك وقولي: من [مكان] إلى [مكان]"
+                durationSeconds < MIN_RECORD_SECONDS -> "التسجيل قصير، سجّلي تاني"
+                else -> "التسجيل جاهز للإرسال"
             },
             color = Color(0xFF1F2937),
             fontSize = if (recordedFile == null) 13.sp else 15.sp,
@@ -324,6 +364,7 @@ private fun StoppedControls(
 
         IconButton(
             onClick = onRecordAgain,
+            enabled = !isSending,
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
@@ -338,6 +379,7 @@ private fun StoppedControls(
 
         IconButton(
             onClick = onCameraClick,
+            enabled = !isSending,
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
@@ -353,11 +395,11 @@ private fun StoppedControls(
         Button(
             onClick = {
                 val file = recordedFile
-                if (file != null && isRecordingReady(file, elapsedSeconds, context)) {
+                if (file != null && isRecordingReady(file, durationSeconds, context)) {
                     onSendVoice(file)
                 }
             },
-            enabled = recordedFile != null && !isSending && elapsedSeconds >= MIN_RECORD_SECONDS,
+            enabled = canSend,
             shape = RoundedCornerShape(22.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
             contentPadding = ButtonDefaults.ContentPadding,
@@ -401,7 +443,7 @@ private fun StoppedControls(
         Spacer(modifier = Modifier.height(14.dp))
         AudioPlaybackBar(
             file = recordedFile,
-            totalSeconds = clampSeconds(elapsedSeconds)
+            totalSeconds = clampSeconds(durationSeconds)
         )
     }
 }
@@ -526,8 +568,52 @@ private fun formatSeconds(seconds: Int): String {
     }
 }
 
-private fun isRecordingReady(file: File, elapsedSeconds: Int, context: android.content.Context): Boolean {
-    if (elapsedSeconds < MIN_RECORD_SECONDS) {
+private fun elapsedSecondsSince(startMs: Long): Int {
+    val diff = System.currentTimeMillis() - startMs
+    if (diff < 0L) {
+        return 0
+    }
+    return (diff / 1000L).toInt()
+}
+
+private fun copyVoiceFileForUpload(source: File, cacheDir: File): File? {
+    val destination = File(cacheDir, "voice_upload_${System.currentTimeMillis()}.m4a")
+    var input: FileInputStream? = null
+    var output: FileOutputStream? = null
+
+    return try {
+        input = FileInputStream(source)
+        output = FileOutputStream(destination)
+        val buffer = ByteArray(8192)
+        var read = input.read(buffer)
+        while (read > 0) {
+            output.write(buffer, 0, read)
+            read = input.read(buffer)
+        }
+        destination
+    } catch (exception: Exception) {
+        destination.delete()
+        null
+    } finally {
+        if (input != null) {
+            try {
+                input.close()
+            } catch (closeError: Exception) {
+                // Ignore close errors.
+            }
+        }
+        if (output != null) {
+            try {
+                output.close()
+            } catch (closeError: Exception) {
+                // Ignore close errors.
+            }
+        }
+    }
+}
+
+private fun isRecordingReady(file: File, durationSeconds: Int, context: android.content.Context): Boolean {
+    if (durationSeconds < MIN_RECORD_SECONDS) {
         Toast.makeText(
             context,
             "سجّلي على الأقل ثانيتين واضحين قبل الإرسال",

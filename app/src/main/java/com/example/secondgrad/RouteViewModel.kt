@@ -46,6 +46,11 @@ class RouteViewModel : ViewModel() {
     private val _voiceMessage = MutableStateFlow<String?>(null)
     val voiceMessage = _voiceMessage.asStateFlow()
 
+    private val _closeVoicePanel = MutableStateFlow(false)
+    val closeVoicePanel = _closeVoicePanel.asStateFlow()
+
+    private var isVoiceSendInProgress = false
+
     fun onFromTextChange(value: String) {
         _fromText.value = value
         _uiState.value = _uiState.value.copy(fromText = value)
@@ -67,37 +72,54 @@ class RouteViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-
-            try {
-                val response = repository.searchRoutes(
-                    SearchRouteRequest(
-                        userLocation = userLocation,
-                        destination = destination
-                    )
-                )
-
-                _routes.value = response.data
-                _uiState.value = _uiState.value.copy(routes = response.data)
-
-                if (response.data.size == 0) {
-                    _errorMessage.value = "مفيش طرق متاحة للبحث ده"
-                    _uiState.value = _uiState.value.copy(errorMessage = "مفيش طرق متاحة للبحث ده")
-                }
-            } catch (throwable: Throwable) {
-                _routes.value = java.util.ArrayList<RouteData>()
-                _uiState.value = _uiState.value.copy(routes = java.util.ArrayList<RouteData>())
-                _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
-                )
-            }
-
-            _isLoading.value = false
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            runRouteSearch(userLocation, destination, showErrors = true)
         }
+    }
+
+    private suspend fun runRouteSearch(
+        userLocation: String,
+        destination: String,
+        showErrors: Boolean
+    ): String? {
+        _isLoading.value = true
+        if (showErrors) {
+            _errorMessage.value = null
+        }
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = if (showErrors) null else _errorMessage.value)
+
+        var resultMessage: String? = null
+
+        try {
+            val response = repository.searchRoutes(
+                SearchRouteRequest(
+                    userLocation = userLocation,
+                    destination = destination
+                )
+            )
+
+            _routes.value = response.data
+            _uiState.value = _uiState.value.copy(routes = response.data)
+
+            if (response.data.size == 0) {
+                resultMessage = "مفيش طرق متاحة للبحث ده"
+                if (showErrors) {
+                    _errorMessage.value = resultMessage
+                    _uiState.value = _uiState.value.copy(errorMessage = resultMessage)
+                }
+            }
+        } catch (throwable: Throwable) {
+            _routes.value = java.util.ArrayList<RouteData>()
+            _uiState.value = _uiState.value.copy(routes = java.util.ArrayList<RouteData>())
+            resultMessage = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
+            if (showErrors) {
+                _errorMessage.value = resultMessage
+                _uiState.value = _uiState.value.copy(errorMessage = resultMessage)
+            }
+        }
+
+        _isLoading.value = false
+        _uiState.value = _uiState.value.copy(isLoading = false)
+        return resultMessage
     }
 
     fun clearError() {
@@ -106,20 +128,26 @@ class RouteViewModel : ViewModel() {
     }
 
     fun sendVoice(file: File) {
+        if (isVoiceSendInProgress) {
+            return
+        }
+
         viewModelScope.launch {
+            isVoiceSendInProgress = true
             _isVoiceSending.value = true
             _voiceMessage.value = null
-            _errorMessage.value = null
+            _closeVoicePanel.value = false
             _uiState.value = _uiState.value.copy(
                 isVoiceSending = true,
-                voiceMessage = null,
-                errorMessage = null
+                voiceMessage = null
             )
+
+            var message = "حصل خطأ في إرسال الصوت"
 
             try {
                 val response = repository.sendVoice(file)
                 val voiceResult = parseVoiceSearchResult(response.data)
-                var message = response.message
+                message = response.message
                     ?: response.status
                     ?: "تم إرسال الصوت بنجاح"
 
@@ -150,35 +178,43 @@ class RouteViewModel : ViewModel() {
                         toText = _toText.value
                     )
 
-                    val hasRouteFields = isUsefulLocationText(_fromText.value) || isUsefulLocationText(_toText.value)
-                    message = if (hasRouteFields) {
-                        if (hasText(_fromText.value) && hasText(_toText.value)) {
-                            searchRoutes()
+                    val hasFrom = isUsefulLocationText(_fromText.value)
+                    val hasTo = isUsefulLocationText(_toText.value)
+                    message = if (hasFrom && hasTo) {
+                        val searchError = runRouteSearch(_fromText.value, _toText.value, showErrors = false)
+                        _closeVoicePanel.value = true
+                        if (searchError == null) {
+                            "تم استخراج الرحلة والبحث عن الطرق"
+                        } else {
+                            "تم استخراج الرحلة، لكن $searchError"
                         }
-                        "تم استخراج الرحلة من الصوت"
+                    } else if (hasFrom || hasTo) {
+                        "تم تعبئة جزء من الرحلة — أكملي الباقي أو سجّلي تاني"
                     } else if (hasText(voiceResult.transcription)) {
                         "سمعنا: ${voiceResult.transcription} — جرّبي تقولي: من [مكان] إلى [مكان]"
                     } else {
                         "مش قادرين نفهم التسجيل، جرّبي تاني بوضوح"
                     }
                 }
+            } catch (throwable: Throwable) {
+                message = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
+            } finally {
+                if (file.exists()) {
+                    file.delete()
+                }
 
                 _voiceMessage.value = message
                 _uiState.value = _uiState.value.copy(voiceMessage = message)
-            } catch (throwable: Throwable) {
-                _errorMessage.value = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = throwable.localizedMessage ?: "حصل خطأ في إرسال الصوت"
-                )
+                _isVoiceSending.value = false
+                _uiState.value = _uiState.value.copy(isVoiceSending = false)
+                isVoiceSendInProgress = false
             }
-
-            _isVoiceSending.value = false
-            _uiState.value = _uiState.value.copy(isVoiceSending = false)
         }
     }
 
     fun clearVoiceMessage() {
         _voiceMessage.value = null
+        _closeVoicePanel.value = false
         _uiState.value = _uiState.value.copy(voiceMessage = null)
     }
 

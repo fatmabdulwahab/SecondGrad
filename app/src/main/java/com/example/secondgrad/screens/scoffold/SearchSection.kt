@@ -41,6 +41,7 @@ fun SearchSection(viewModel: RouteViewModel) {
     val errorMessage by viewModel.errorMessage.collectAsState()
     val isVoiceSending by viewModel.isVoiceSending.collectAsState()
     val voiceMessage by viewModel.voiceMessage.collectAsState()
+    val closeVoicePanel by viewModel.closeVoicePanel.collectAsState()
 
     // فقط بنراقب الديالوج يفتح ولا يقفل
     var isCameraActive by remember { mutableStateOf(false) }
@@ -63,9 +64,12 @@ fun SearchSection(viewModel: RouteViewModel) {
     LaunchedEffect(voiceMessage) {
         val message = voiceMessage
         if (message != null) {
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            val shouldClosePanel = closeVoicePanel
             viewModel.clearVoiceMessage()
-            isVoiceActive = false
+            if (shouldClosePanel) {
+                isVoiceActive = false
+            }
         }
     }
 
