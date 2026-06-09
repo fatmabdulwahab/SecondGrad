@@ -37,6 +37,7 @@ import java.util.concurrent.Executors
 fun CameraPreview(
     activity: ComponentActivity,
     signViewModel: SignViewModel,
+    modelPrepared: Boolean = false,
     onError: (String) -> Unit,
     onHandModelStatus: (Boolean) -> Unit = {}
 ) {
@@ -56,9 +57,11 @@ fun CameraPreview(
         )
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(modelPrepared) {
         val ready = withContext(Dispatchers.IO) {
-            HandModelProvider.ensureModelFile(activity)
+            if (!modelPrepared) {
+                HandModelProvider.ensureModelFile(activity)
+            }
             handLandmarkerHelper.setupHandLandmarker()
         }
         isHandReady = ready
@@ -183,13 +186,16 @@ fun CameraPreview(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0x88000000)),
+                    .background(Color(0x66000000)),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Text(
-                    text = "الكاميرا شغالة — جاري تجهيز التعرف على الإشارة...",
+                    text = "جاري تفعيل التعرف على الإشارة...",
                     color = Color.White,
-                    modifier = Modifier.background(Color(0xCC000000))
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .background(Color(0xCC000000))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
         }

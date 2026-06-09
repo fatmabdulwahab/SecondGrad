@@ -2,6 +2,10 @@ package com.example.secondgrad.screens.scoffold
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -12,45 +16,27 @@ object HandModelProvider {
 
     const val MODEL_FILE_NAME = "hand_landmarker.task"
     private const val MIN_MODEL_BYTES = 1_000_000L
+    private const val MODEL_DOWNLOAD_URL =
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+
+    private val httpClient = OkHttpClient()
+
+    suspend fun ensureModelFile(context: Context): File? {
+        return withContext(Dispatchers.IO) {
+            ensureModelFileBlocking(context)
+        }
+    }
 
     fun isModelAvailable(context: Context): Boolean {
-        if (hasBundledAsset(context)) {
+        val cachedFile = File(context.filesDir, MODEL_FILE_NAME)
+        if (cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES) {
             return true
         }
-
-        val cachedFile = File(context.filesDir, MODEL_FILE_NAME)
-        return cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES
+        return isAssetPackaged(context)
     }
 
     fun hasBundledAsset(context: Context): Boolean {
         return isAssetPackaged(context)
-    }
-
-    fun ensureModelFile(context: Context): File? {
-        val cachedFile = File(context.filesDir, MODEL_FILE_NAME)
-        if (cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES) {
-            return cachedFile
-        }
-
-        if (!isAssetPackaged(context)) {
-            return null
-        }
-
-        return try {
-            copyAssetToFile(context, MODEL_FILE_NAME, cachedFile)
-            if (cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES) {
-                cachedFile
-            } else {
-                cachedFile.delete()
-                null
-            }
-        } catch (throwable: Throwable) {
-            Log.e("HAND_MODEL", throwable.message.toString())
-            if (cachedFile.exists()) {
-                cachedFile.delete()
-            }
-            null
-        }
     }
 
     fun readModelDirectBuffer(modelFile: File): ByteBuffer? {
@@ -89,6 +75,93 @@ object HandModelProvider {
         }
     }
 
+    private fun ensureModelFileBlocking(context: Context): File? {
+        val cachedFile = File(context.filesDir, MODEL_FILE_NAME)
+        if (cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES) {
+            return cachedFile
+        }
+
+        if (isAssetPackaged(context)) {
+            try {
+                copyAssetToFile(context, MODEL_FILE_NAME, cachedFile)
+                if (cachedFile.exists() && cachedFile.length() >= MIN_MODEL_BYTES) {
+                    return cachedFile
+                }
+            } catch (throwable: Throwable) {
+                Log.e("HAND_MODEL", throwable.message.toString())
+            }
+        }
+
+        val downloaded = downloadModelFile(cachedFile)
+        if (downloaded != null && downloaded.exists() && downloaded.length() >= MIN_MODEL_BYTES) {
+            return downloaded
+        }
+
+        if (cachedFile.exists()) {
+            cachedFile.delete()
+        }
+        return null
+    }
+
+    private fun downloadModelFile(targetFile: File): File? {
+        val tempFile = File(targetFile.parentFile, "${MODEL_FILE_NAME}.download")
+        if (tempFile.exists()) {
+            tempFile.delete()
+        }
+
+        var output: FileOutputStream? = null
+        return try {
+            val request = Request.Builder()
+                .url(MODEL_DOWNLOAD_URL)
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return null
+            }
+
+            val body = response.body ?: return null
+            output = FileOutputStream(tempFile)
+
+            val source = body.byteStream()
+            val buffer = ByteArray(8192)
+            var read = source.read(buffer)
+            while (read > 0) {
+                output.write(buffer, 0, read)
+                read = source.read(buffer)
+            }
+            output.flush()
+
+            if (targetFile.exists()) {
+                targetFile.delete()
+            }
+
+            if (!tempFile.renameTo(targetFile)) {
+                copyFile(tempFile, targetFile)
+                tempFile.delete()
+            }
+
+            if (targetFile.exists() && targetFile.length() >= MIN_MODEL_BYTES) {
+                targetFile
+            } else {
+                targetFile.delete()
+                null
+            }
+        } catch (throwable: Throwable) {
+            Log.e("HAND_MODEL", throwable.message.toString())
+            tempFile.delete()
+            null
+        } finally {
+            if (output != null) {
+                try {
+                    output.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
+        }
+    }
+
     private fun isAssetPackaged(context: Context): Boolean {
         var input: InputStream? = null
         return try {
@@ -105,7 +178,6 @@ object HandModelProvider {
             }
             totalBytes >= MIN_MODEL_BYTES
         } catch (throwable: Throwable) {
-            Log.e("HAND_MODEL", throwable.message.toString())
             false
         } finally {
             if (input != null) {
@@ -131,6 +203,39 @@ object HandModelProvider {
             while (bytesRead > 0) {
                 output.write(buffer, 0, bytesRead)
                 bytesRead = input.read(buffer)
+            }
+            output.flush()
+        } finally {
+            if (output != null) {
+                try {
+                    output.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
+
+            if (input != null) {
+                try {
+                    input.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
+        }
+    }
+
+    private fun copyFile(source: File, destination: File) {
+        var input: FileInputStream? = null
+        var output: FileOutputStream? = null
+
+        try {
+            input = FileInputStream(source)
+            output = FileOutputStream(destination)
+            val buffer = ByteArray(8192)
+            var read = input.read(buffer)
+            while (read > 0) {
+                output.write(buffer, 0, read)
+                read = input.read(buffer)
             }
             output.flush()
         } finally {

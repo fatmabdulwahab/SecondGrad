@@ -1,5 +1,6 @@
 package com.example.secondgrad.screens.scoffold
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -18,11 +19,56 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 enum class CameraUiState {
-    Initial,         // الحالة المبدئية
-    CreatingSession, // جاري إنشاء جلسة...
-    ConnectingServer, // جاري الاتصال بالخادم...
-    StartingCamera,  // جاري تشغيل الكاميرا...
-    Ready            // الكاميرا جاهزة مع أزرار حفظ وإلغاء
+    Initial,
+    CreatingSession,
+    ConnectingServer,
+    StartingCamera,
+    Ready
+}
+
+fun cameraUiStateMessage(state: CameraUiState): String {
+    return when (state) {
+        CameraUiState.Initial -> "كاميرا الترجمة جاهزة للتشغيل"
+        CameraUiState.CreatingSession -> "الخطوة 1 من 4: جاري إنشاء جلسة الترجمة..."
+        CameraUiState.ConnectingServer -> "الخطوة 2 من 4: جاري تحميل ملف التعرف على الإشارة..."
+        CameraUiState.StartingCamera -> "الخطوة 3 من 4: جاري تشغيل الكاميرا..."
+        CameraUiState.Ready -> "الخطوة 4 من 4: الكاميرا جاهزة"
+    }
+}
+
+@Composable
+fun CameraStepIndicator(currentState: CameraUiState) {
+    if (currentState == CameraUiState.Initial || currentState == CameraUiState.Ready) {
+        return
+    }
+
+    val stepIndex = when (currentState) {
+        CameraUiState.CreatingSession -> 1
+        CameraUiState.ConnectingServer -> 2
+        CameraUiState.StartingCamera -> 3
+        else -> 0
+    }
+
+    if (stepIndex == 0) {
+        return
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 8.dp)
+    ) {
+        var step = 1
+        while (step <= 3) {
+            val color = if (step <= stepIndex) Color(0xFF10B981) else Color(0xFF475569)
+            Box(
+                modifier = Modifier
+                    .size(if (step == stepIndex) 10.dp else 8.dp)
+                    .background(color, CircleShape)
+            )
+            step = step + 1
+        }
+    }
 }
 
 @Composable

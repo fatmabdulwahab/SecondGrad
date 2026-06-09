@@ -38,6 +38,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.secondgrad.SignViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 @Composable
 fun CameraTranslationDialog(
     activity: ComponentActivity,
@@ -50,12 +52,9 @@ fun CameraTranslationDialog(
     val currentWord by viewModel.currentWord.collectAsState()
     val cameraError by viewModel.errorMessage.collectAsState()
     var cameraUiState by remember { mutableStateOf(CameraUiState.Initial) }
+    var handTrackingReady by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-
-    fun hasHandModelAsset(): Boolean {
-        return HandModelProvider.isModelAvailable(context)
-    }
 
     fun hasCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -66,7 +65,10 @@ fun CameraTranslationDialog(
 
     fun startCameraSession() {
         scope.launch {
+            handTrackingReady = false
+
             cameraUiState = CameraUiState.CreatingSession
+            delay(700)
 
             val isSessionCreated = viewModel.createSessionForCamera()
             if (!isSessionCreated) {
@@ -75,18 +77,14 @@ fun CameraTranslationDialog(
             }
 
             cameraUiState = CameraUiState.ConnectingServer
-            delay(300)
-
-            if (!hasHandModelAsset()) {
-                Toast.makeText(
-                    context,
-                    "ملف التعرف على الإشارة مش موجود — الكاميرا هتفتح لكن الترجمة ممكن ما تشتغلش",
-                    Toast.LENGTH_LONG
-                ).show()
+            val modelFile = withContext(Dispatchers.IO) {
+                HandModelProvider.ensureModelFile(context)
             }
+            handTrackingReady = modelFile != null
+            delay(700)
 
             cameraUiState = CameraUiState.StartingCamera
-            delay(300)
+            delay(700)
 
             cameraUiState = CameraUiState.Ready
         }
@@ -184,28 +182,44 @@ fun CameraTranslationDialog(
                     AnimatedContent(targetState = cameraUiState, label = "CameraState") { state ->
                         when (state) {
                             CameraUiState.Initial -> InitialStateView()
-                            CameraUiState.CreatingSession -> LoadingStateView("جاري إنشاء جلسة والاتصال بالخادم...")
+                            CameraUiState.CreatingSession -> LoadingStateView(
+                                cameraUiStateMessage(CameraUiState.CreatingSession)
+                            )
+                            CameraUiState.ConnectingServer -> LoadingStateView(
+                                cameraUiStateMessage(CameraUiState.ConnectingServer)
+                            )
+                            CameraUiState.StartingCamera -> LoadingStateView(
+                                cameraUiStateMessage(CameraUiState.StartingCamera)
+                            )
                             CameraUiState.Ready -> {
                                 CameraPreview(
                                     activity = activity,
                                     signViewModel = viewModel,
+                                    modelPrepared = handTrackingReady,
                                     onError = { message ->
                                         viewModel.setCameraError(message)
                                     },
                                     onHandModelStatus = { isReady ->
-                                        if (!isReady) {
-                                            Toast.makeText(
-                                                context,
-                                                "الكاميرا شغالة، لكن ملف التعرف على الإشارة محتاج Rebuild للمشروع",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
+                                        handTrackingReady = isReady
                                     }
                                 )
                             }
-                            else -> LoadingStateView("جاري تشغيل الكاميرا...")
                         }
                     }
+                }
+
+                CameraStepIndicator(currentState = cameraUiState)
+
+                if (cameraUiState != CameraUiState.Initial && cameraUiState != CameraUiState.Ready) {
+                    Text(
+                        text = cameraUiStateMessage(cameraUiState),
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    )
                 }
 
                 // الـ Layout السفلي الديناميكي
@@ -219,6 +233,18 @@ fun CameraTranslationDialog(
                                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                                 horizontalAlignment = Alignment.End
                             ) {
+                                if (!handTrackingReady) {
+                                    Text(
+                                        text = "الكاميرا شغالة — التعرف على الإشارة لسه بيتفعّل. لو استمرت المشكلة تأكدي من الإنترنت وجربي تاني",
+                                        color = Color(0xFFB45309),
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 10.dp)
+                                    )
+                                }
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                                     horizontalArrangement = Arrangement.End,
