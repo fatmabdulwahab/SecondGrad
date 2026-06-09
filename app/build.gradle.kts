@@ -15,7 +15,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a" ,"x86_64")
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -24,14 +24,10 @@ android {
     }
 
 
+    // for mediapipe
     packaging {
         jniLibs {
-            useLegacyPackaging = false
-            pickFirsts += listOf(
-                "**/libc++_shared.so",
-                "**/libmediapipe_tasks_vision_jni.so",
-                "**/libmediapipe_tasks_jni.so"
-            )
+            useLegacyPackaging = true
         }
     }
 
@@ -84,9 +80,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:${camerax_version}")
     implementation("androidx.camera:camera-lifecycle:${camerax_version}")
     implementation("androidx.camera:camera-view:${camerax_version}")
-    // MediaPipe 0.10.29+ ships x86/x86_64 JNI and 16 KB page-size aligned libs
-    implementation("com.google.mediapipe:tasks-core:0.10.29")
-    implementation("com.google.mediapipe:tasks-vision:0.10.29")
+// mediapipe
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
 
     // Compose
