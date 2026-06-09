@@ -43,7 +43,7 @@ fun SearchSection(viewModel: RouteViewModel) {
     val voiceMessage by viewModel.voiceMessage.collectAsState()
     val closeVoicePanel by viewModel.closeVoicePanel.collectAsState()
 
-    // فقط بنراقب الديالوج يفتح ولا يقفل
+
     var isCameraActive by remember { mutableStateOf(false) }
     var isVoiceActive by remember { mutableStateOf(false) }
     val context = LocalContext.current

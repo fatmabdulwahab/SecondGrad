@@ -42,6 +42,7 @@ import com.example.secondgrad.screens.busCard.SmallLine
 import com.example.secondgrad.screens.busCard.TelegramIcon
 import com.example.secondgrad.screens.busCard.TimeAndCost
 import com.example.secondgrad.screens.busCard.VerticalLine
+import com.google.android.gms.common.util.CollectionUtils.listOf
 
 @Composable
 @Preview(showSystemUi = true)
