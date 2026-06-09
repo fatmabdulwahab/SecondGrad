@@ -168,7 +168,7 @@ class RouteViewModel : ViewModel() {
                     } else if (hasFrom || hasTo) {
                         "تم تعبئة الحقول من الصوت — راجعي From و To"
                     } else if (hasText(voiceResult.transcription)) {
-                        "سمعنا: ${voiceResult.transcription} — جرّبي تقولي: من [مكان] إلى [مكان]"
+                        "السيرفر سمع: ${voiceResult.transcription} — جرّبي بوضوح: من المعادي إلى رمسيس (3 ثواني)"
                     } else {
                         "مش قادرين نفهم التسجيل، جرّبي تاني بوضوح"
                     }

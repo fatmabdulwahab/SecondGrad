@@ -3,9 +3,10 @@ package com.example.secondgrad.screens.scoffold
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.os.Build
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -62,10 +63,19 @@ import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 
 private const val MAX_RECORD_SECONDS = 10
-private const val MIN_RECORD_SECONDS = 2
-private const val MIN_RECORD_BYTES = 8000L
+private const val MIN_RECORD_SECONDS = 3
+private const val MIN_RECORD_BYTES = 48000L
+private const val WAV_SAMPLE_RATE = 16000
+private const val WAV_CHANNEL_COUNT = 1
+private const val WAV_BITS_PER_SAMPLE = 16
+
+private class RecordingFlag {
+    @Volatile
+    var active: Boolean = false
+}
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -78,7 +88,9 @@ fun VoiceRecorderPanel(
 ) {
     val context = LocalContext.current
     val currentIsSending by rememberUpdatedState(isSending)
-    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    val recordingFlag = remember { RecordingFlag() }
+    var audioRecord by remember { mutableStateOf<AudioRecord?>(null) }
+    var recordingThread by remember { mutableStateOf<Thread?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var displaySeconds by remember { mutableIntStateOf(0) }
@@ -87,11 +99,23 @@ fun VoiceRecorderPanel(
     var shouldStartAfterPermission by remember { mutableStateOf(false) }
 
     fun releaseRecorder() {
-        val activeRecorder = recorder
+        val activeRecorder = audioRecord
         if (activeRecorder != null) {
             activeRecorder.release()
         }
-        recorder = null
+        audioRecord = null
+    }
+
+    fun waitForRecordingThread() {
+        val thread = recordingThread
+        if (thread != null) {
+            try {
+                thread.join(2000)
+            } catch (exception: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        recordingThread = null
     }
 
     fun deleteRecordedFile() {
@@ -113,23 +137,28 @@ fun VoiceRecorderPanel(
     }
 
     fun stopRecording() {
-        val activeRecorder = recorder
-        if (activeRecorder == null) {
+        if (audioRecord == null && !isRecording) {
             return
         }
 
-        try {
-            activeRecorder.stop()
-            stoppedDurationSeconds = currentDurationSeconds()
-            displaySeconds = stoppedDurationSeconds
-        } catch (exception: Exception) {
-            deleteRecordedFile()
-            Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
+        recordingFlag.active = false
+        isRecording = false
+        waitForRecordingThread()
+
+        val activeRecorder = audioRecord
+        if (activeRecorder != null) {
+            try {
+                activeRecorder.stop()
+                stoppedDurationSeconds = currentDurationSeconds()
+                displaySeconds = stoppedDurationSeconds
+            } catch (exception: Exception) {
+                deleteRecordedFile()
+                Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
+            }
         }
 
         releaseRecorder()
         recordingStartedAtMs = 0L
-        isRecording = false
     }
 
     fun startRecording() {
@@ -137,36 +166,64 @@ fun VoiceRecorderPanel(
             return
         }
 
+        recordingFlag.active = false
+        waitForRecordingThread()
         releaseRecorder()
         deleteRecordedFile()
 
-        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
-        val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(context)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
+        val minBufferSize = AudioRecord.getMinBufferSize(
+            WAV_SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+
+        if (minBufferSize <= 0) {
+            Toast.makeText(context, "مش قادرين نجهز التسجيل على الجهاز ده", Toast.LENGTH_SHORT).show()
+            return
         }
 
-        try {
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            mediaRecorder.setAudioSamplingRate(44100)
-            mediaRecorder.setAudioEncodingBitRate(128000)
-            mediaRecorder.setOutputFile(outputFile.absolutePath)
-            mediaRecorder.prepare()
-            mediaRecorder.start()
+        val bufferSize = minBufferSize * 2
+        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.wav")
 
-            recorder = mediaRecorder
+        try {
+            val recorder = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                WAV_SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSize
+            )
+
+            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                recorder.release()
+                Toast.makeText(context, "مش قادرين نبدأ التسجيل", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            recordingFlag.active = true
+            recorder.startRecording()
+
+            audioRecord = recorder
             recordedFile = outputFile
             recordingStartedAtMs = System.currentTimeMillis()
             displaySeconds = 0
             stoppedDurationSeconds = 0
             isRecording = true
+
+            val thread = Thread {
+                writeWavFile(
+                    recorder = recorder,
+                    file = outputFile,
+                    keepRecording = recordingFlag,
+                    bufferSize = bufferSize
+                )
+            }
+            recordingThread = thread
+            thread.start()
         } catch (exception: Exception) {
-            mediaRecorder.release()
+            recordingFlag.active = false
             outputFile.delete()
+            releaseRecorder()
             Toast.makeText(context, "مش قادرين نبدأ التسجيل", Toast.LENGTH_SHORT).show()
         }
     }
@@ -214,8 +271,11 @@ fun VoiceRecorderPanel(
 
     DisposableEffect(Unit) {
         onDispose {
+            recordingFlag.active = false
+            waitForRecordingThread()
+
             if (isRecording) {
-                val activeRecorder = recorder
+                val activeRecorder = audioRecord
                 if (activeRecorder != null) {
                     try {
                         activeRecorder.stop()
@@ -576,8 +636,81 @@ private fun elapsedSecondsSince(startMs: Long): Int {
     return (diff / 1000L).toInt()
 }
 
+private fun writeWavFile(
+    recorder: AudioRecord,
+    file: File,
+    keepRecording: RecordingFlag,
+    bufferSize: Int
+) {
+    val buffer = ByteArray(bufferSize)
+    var audioBytesWritten = 0
+    var randomAccessFile: RandomAccessFile? = null
+
+    try {
+        randomAccessFile = RandomAccessFile(file, "rw")
+        writeWavHeader(randomAccessFile, 0)
+
+        while (keepRecording.active) {
+            val read = recorder.read(buffer, 0, buffer.size)
+            if (read > 0) {
+                randomAccessFile.write(buffer, 0, read)
+                audioBytesWritten = audioBytesWritten + read
+            }
+        }
+
+        updateWavHeader(randomAccessFile, audioBytesWritten)
+    } catch (exception: Exception) {
+        file.delete()
+    } finally {
+        if (randomAccessFile != null) {
+            try {
+                randomAccessFile.close()
+            } catch (closeError: Exception) {
+                // Ignore close errors.
+            }
+        }
+    }
+}
+
+private fun writeWavHeader(file: RandomAccessFile, audioLength: Int) {
+    file.setLength(0)
+    file.writeBytes("RIFF")
+    writeIntLittleEndian(file, 36 + audioLength)
+    file.writeBytes("WAVE")
+    file.writeBytes("fmt ")
+    writeIntLittleEndian(file, 16)
+    writeShortLittleEndian(file, 1)
+    writeShortLittleEndian(file, WAV_CHANNEL_COUNT)
+    writeIntLittleEndian(file, WAV_SAMPLE_RATE)
+    writeIntLittleEndian(file, WAV_SAMPLE_RATE * WAV_CHANNEL_COUNT * WAV_BITS_PER_SAMPLE / 8)
+    writeShortLittleEndian(file, WAV_CHANNEL_COUNT * WAV_BITS_PER_SAMPLE / 8)
+    writeShortLittleEndian(file, WAV_BITS_PER_SAMPLE)
+    file.writeBytes("data")
+    writeIntLittleEndian(file, audioLength)
+}
+
+private fun updateWavHeader(file: RandomAccessFile, audioLength: Int) {
+    file.seek(4)
+    writeIntLittleEndian(file, 36 + audioLength)
+    file.seek(40)
+    writeIntLittleEndian(file, audioLength)
+}
+
+private fun writeIntLittleEndian(file: RandomAccessFile, value: Int) {
+    file.write(value and 0xff)
+    file.write(value shr 8 and 0xff)
+    file.write(value shr 16 and 0xff)
+    file.write(value shr 24 and 0xff)
+}
+
+private fun writeShortLittleEndian(file: RandomAccessFile, value: Int) {
+    file.write(value and 0xff)
+    file.write(value shr 8 and 0xff)
+}
+
 private fun copyVoiceFileForUpload(source: File, cacheDir: File): File? {
-    val destination = File(cacheDir, "voice_upload_${System.currentTimeMillis()}.m4a")
+    val extension = if (source.name.endsWith(".wav")) ".wav" else ".m4a"
+    val destination = File(cacheDir, "voice_upload_${System.currentTimeMillis()}$extension")
     var input: FileInputStream? = null
     var output: FileOutputStream? = null
 
@@ -616,7 +749,7 @@ private fun isRecordingReady(file: File, durationSeconds: Int, context: android.
     if (durationSeconds < MIN_RECORD_SECONDS) {
         Toast.makeText(
             context,
-            "سجّلي على الأقل ثانيتين واضحين قبل الإرسال",
+            "سجّلي على الأقل 3 ثواني واضحين قبل الإرسال",
             Toast.LENGTH_SHORT
         ).show()
         return false
