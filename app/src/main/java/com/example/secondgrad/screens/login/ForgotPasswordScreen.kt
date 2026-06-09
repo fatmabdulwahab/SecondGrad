@@ -186,7 +186,7 @@ fun ForgotPasswordScreen(
 
                 Button(
                     onClick = {
-                        val trimmedEmail = email.trim()
+                        val trimmedEmail = trimInputText(email)
                         when {
                             !resetCodeSent -> {
                                 if (!hasForgotText(trimmedEmail) || trimmedEmail.indexOf("@") < 0) {
@@ -199,7 +199,7 @@ fun ForgotPasswordScreen(
                                 if (!hasForgotText(code)) {
                                     Toast.makeText(context, "اكتبي كود التأكيد", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    viewModel.confirmResetCode(trimmedEmail, code.trim())
+                                    viewModel.confirmResetCode(trimmedEmail, trimInputText(code))
                                 }
                             }
                             else -> {
@@ -257,4 +257,27 @@ private fun hasForgotText(value: String): Boolean {
         index = index + 1
     }
     return false
+}
+
+private fun trimInputText(value: String): String {
+    var start = 0
+    var end = value.length
+
+    while (start < end) {
+        val char = value[start]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
+        }
+        start = start + 1
+    }
+
+    while (end > start) {
+        val char = value[end - 1]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
+        }
+        end = end - 1
+    }
+
+    return if (start >= end) "" else value.substring(start, end)
 }

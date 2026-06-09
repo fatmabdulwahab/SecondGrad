@@ -281,7 +281,7 @@ fun LoginScreen(
                         }
 
                         if (emailError.length == 0 && passwordError.length == 0) {
-                            viewModel.signIn(email.trim(), password)
+                            viewModel.signIn(trimInputText(email), password)
                         }
                     },
                     enabled = !isLoading,
@@ -360,4 +360,27 @@ private fun endsWithLoginChar(value: String, target: Char): Boolean {
         return false
     }
     return value[value.length - 1] == target
+}
+
+private fun trimInputText(value: String): String {
+    var start = 0
+    var end = value.length
+
+    while (start < end) {
+        val char = value[start]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
+        }
+        start = start + 1
+    }
+
+    while (end > start) {
+        val char = value[end - 1]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
+        }
+        end = end - 1
+    }
+
+    return if (start >= end) "" else value.substring(start, end)
 }
