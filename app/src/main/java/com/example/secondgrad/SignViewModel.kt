@@ -89,6 +89,36 @@ class SignViewModel : ViewModel() {
         return finalWord
     }
 
+    fun cancelSession(
+        onComplete: () -> Unit,
+        onError: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                finishSession()
+                onComplete()
+            } catch (e: Exception) {
+                Log.e("CANCEL_SESSION_ERROR", e.message.toString())
+                onError()
+            }
+        }
+    }
+
+    fun saveSession(
+        onSuccess: (String) -> Unit,
+        onError: () -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val finalWord = finishSession()
+                onSuccess(finalWord)
+            } catch (e: Exception) {
+                Log.e("END_SESSION_ERROR", e.message.toString())
+                onError()
+            }
+        }
+    }
+
     fun setCameraError(message: String) {
         _errorMessage.value = message
     }

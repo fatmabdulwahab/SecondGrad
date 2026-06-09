@@ -1,6 +1,5 @@
 package com.example.secondgrad.screens.scoffold
 
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedContent
@@ -32,10 +31,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.secondgrad.SignViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 @Composable
 fun CameraTranslationDialog(
     activity: ComponentActivity,
@@ -261,17 +258,14 @@ fun CameraTranslationDialog(
                                 ) {
                                     Button(
                                         onClick = {
-                                            scope.launch {
-                                                try {
-                                                    withContext(Dispatchers.IO) {
-                                                        viewModel.finishSession()
-                                                    }
+                                            viewModel.cancelSession(
+                                                onComplete = {
                                                     cameraUiState = CameraUiState.Initial
-                                                } catch (e: Exception) {
-                                                    Log.e("CANCEL_SESSION_ERROR", e.message.toString())
+                                                },
+                                                onError = {
                                                     cameraUiState = CameraUiState.Initial
                                                 }
-                                            }
+                                            )
                                         },
                                         modifier = Modifier.height(50.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF5F5)),
@@ -282,21 +276,18 @@ fun CameraTranslationDialog(
 
                                     Button(
                                         onClick = {
-                                            scope.launch {
-                                                try {
-                                                    val finalWord = withContext(Dispatchers.IO) {
-                                                        viewModel.finishSession()
-                                                    }
+                                            viewModel.saveSession(
+                                                onSuccess = { finalWord ->
                                                     onSaveSuccess(finalWord)
-                                                } catch (e: Exception) {
-                                                    Log.e("END_SESSION_ERROR", e.message.toString())
+                                                },
+                                                onError = {
                                                     Toast.makeText(
                                                         context,
                                                         "مش قادرين نحفظ الجلسة",
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }
-                                            }
+                                            )
                                         },
                                         modifier = Modifier.weight(1f).height(50.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF73C2B3)),
