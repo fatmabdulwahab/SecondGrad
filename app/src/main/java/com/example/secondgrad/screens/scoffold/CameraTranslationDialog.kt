@@ -69,7 +69,7 @@ fun CameraTranslationDialog(
             if (!hasHandModelAsset()) {
                 Toast.makeText(
                     context,
-                    "ملف تشغيل الكاميرا غير موجود. أعيدي تثبيت التطبيق أو Sync للمشروع",
+                    "ملف hand_landmarker.task مش موجود في التطبيق. اعملي Build > Clean ثم Rebuild",
                     Toast.LENGTH_LONG
                 ).show()
                 cameraUiState = CameraUiState.Initial

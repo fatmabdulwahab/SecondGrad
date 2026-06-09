@@ -52,7 +52,7 @@ fun CameraPreview(
         val isReady = handLandmarkerHelper.setupHandLandmarker()
         isHandReady.value = isReady
         if (!isReady) {
-            onError("ملف تشغيل الكاميرا غير موجود أو غير صالح")
+            onError("تعذر تحميل ملف hand_landmarker.task. اعملي Clean ثم Rebuild للمشروع")
         }
     }
 
