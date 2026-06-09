@@ -26,13 +26,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.secondgrad.BackgroundRunner
 import com.example.secondgrad.SignViewModel
 import com.google.mediapipe.framework.image.BitmapImageBuilder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
 @Composable
@@ -60,9 +60,9 @@ fun CameraPreview(
     }
 
     LaunchedEffect(modelPrepared) {
-        val ready = withContext(Dispatchers.IO) {
+        val ready = BackgroundRunner.run {
             if (!modelPrepared) {
-                HandModelProvider.ensureModelFile(activity)
+                HandModelProvider.prepareModelFile(activity)
             }
             handLandmarkerHelper.setupHandLandmarker()
         }
@@ -92,10 +92,9 @@ fun CameraPreview(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
-                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                }
+                val previewView = PreviewView(ctx)
+                previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
 
                 val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                 cameraProviderFuture.addListener({

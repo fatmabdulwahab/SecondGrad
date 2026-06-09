@@ -2,8 +2,6 @@ package com.example.secondgrad.screens.scoffold
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -20,12 +18,6 @@ object HandModelProvider {
         "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 
     private val httpClient = OkHttpClient()
-
-    suspend fun ensureModelFile(context: Context): File? {
-        return withContext(Dispatchers.IO) {
-            prepareModelFile(context)
-        }
-    }
 
     fun prepareModelFile(context: Context): File? {
         return ensureModelFileBlocking(context)

@@ -35,11 +35,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.secondgrad.BackgroundRunner
 import com.example.secondgrad.SignViewModel
+import com.example.secondgrad.containsText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 @Composable
 fun CameraTranslationDialog(
     activity: ComponentActivity,
@@ -77,8 +77,8 @@ fun CameraTranslationDialog(
             }
 
             cameraUiState = CameraUiState.ConnectingServer
-            val modelFile = withContext(Dispatchers.IO) {
-                HandModelProvider.ensureModelFile(context)
+            val modelFile = BackgroundRunner.run {
+                HandModelProvider.prepareModelFile(context)
             }
             handTrackingReady = modelFile != null
             delay(700)
@@ -110,7 +110,7 @@ fun CameraTranslationDialog(
         if (message != null) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearError()
-            if (message.indexOf("صلاحية الكاميرا") >= 0 || message.indexOf("نشغل الكاميرا") >= 0) {
+            if (containsText(message, "صلاحية الكاميرا") || containsText(message, "نشغل الكاميرا")) {
                 cameraUiState = CameraUiState.Initial
             }
         }
