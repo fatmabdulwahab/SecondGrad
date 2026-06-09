@@ -47,7 +47,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,10 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.concurrent.atomic.AtomicBoolean
@@ -80,11 +76,10 @@ fun VoiceRecorderPanel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val recordingFlag = remember { AtomicBoolean(false) }
 
     var audioRecord by remember { mutableStateOf<AudioRecord?>(null) }
-    var recordingJob by remember { mutableStateOf<Job?>(null) }
+    var recordingThread by remember { mutableStateOf<Thread?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
@@ -106,9 +101,22 @@ fun VoiceRecorderPanel(
         elapsedSeconds = 0
     }
 
+    fun waitForRecordingThread() {
+        val thread = recordingThread
+        if (thread != null) {
+            try {
+                thread.join(500)
+            } catch (interrupted: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        recordingThread = null
+    }
+
     fun stopRecording() {
         recordingFlag.set(false)
         isRecording = false
+        waitForRecordingThread()
 
         val recorder = audioRecord
         if (recorder != null) {
@@ -116,7 +124,7 @@ fun VoiceRecorderPanel(
                 if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                     recorder.stop()
                 }
-            } catch (exception: Exception) {
+            } catch (_: Exception) {
                 Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
             }
         }
@@ -165,7 +173,7 @@ fun VoiceRecorderPanel(
             elapsedSeconds = 0
             isRecording = true
 
-            recordingJob = scope.launch(Dispatchers.IO) {
+            val thread = Thread {
                 writeWavFile(
                     recorder = recorder,
                     file = outputFile,
@@ -173,7 +181,9 @@ fun VoiceRecorderPanel(
                     bufferSize = bufferSize
                 )
             }
-        } catch (exception: Exception) {
+            recordingThread = thread
+            thread.start()
+        } catch (_: Exception) {
             outputFile.delete()
             recordingFlag.set(false)
             releaseRecorder()
@@ -209,7 +219,6 @@ fun VoiceRecorderPanel(
     DisposableEffect(Unit) {
         onDispose {
             recordingFlag.set(false)
-            recordingJob?.cancel()
             stopRecording()
 
             val file = recordedFile

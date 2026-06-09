@@ -45,9 +45,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +67,6 @@ import androidx.navigation.NavHostController
 import com.example.secondgrad.DashboardStats
 import com.example.secondgrad.DashboardViewModel
 import com.example.secondgrad.RoleResponse
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +81,7 @@ fun DashboardScreen(
     val context = LocalContext.current
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
+    var drawerOpenRequest by remember { mutableIntStateOf(0) }
 
     var showAddRoleDialog by remember { mutableStateOf(false) }
     var editingRole by remember { mutableStateOf<RoleResponse?>(null) }
@@ -92,6 +91,12 @@ fun DashboardScreen(
         if (currentMessage != null) {
             Toast.makeText(context, currentMessage, Toast.LENGTH_SHORT).show()
             viewModel.clearMessage()
+        }
+    }
+
+    LaunchedEffect(drawerOpenRequest) {
+        if (drawerOpenRequest > 0) {
+            drawerState.open()
         }
     }
 
@@ -126,7 +131,6 @@ fun DashboardScreen(
         drawerState = drawerState,
         drawerContent = {
             AppDrawer(
-                scope = scope,
                 drawerState = drawerState,
                 navController = navController
             )
@@ -142,7 +146,7 @@ fun DashboardScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        IconButton(onClick = { drawerOpenRequest = drawerOpenRequest + 1 }) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Menu"
