@@ -6,12 +6,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -153,11 +155,11 @@ fun RegisterScreen(
 
                         if (emailError.length == 0 && passwordError.length == 0 && nameError.length == 0 && countryError.length == 0 && addressError.length == 0) {
                             viewModel.signUp(
-                                email = email.trim(),
+                                email = trimInputText(email),
                                 password = password,
-                                fullName = name.trim(),
-                                country = country.trim(),
-                                address = address.trim()
+                                fullName = trimInputText(name),
+                                country = trimInputText(country),
+                                address = trimInputText(address)
                             )
                         }
                     },
@@ -302,157 +304,26 @@ private fun hasWordAt(value: String, word: String): Boolean {
 
     return false
 }
-/*
-@Composable
-fun RegisterScreen(navController: NavController) {
 
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+private fun trimInputText(value: String): String {
+    var start = 0
+    var end = value.length
 
-    var nameError by remember { mutableStateOf("") }
-    var emailError by remember { mutableStateOf("") }
-    var passwordError by remember { mutableStateOf("") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colorResource(id = R.color.background_green)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-
-        Image(
-            painter = painterResource(id = R.drawable.bus_logo),
-            contentDescription = "Logo",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Text(
-            text = "Create Account",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        Text(
-            text = "Join us and start your journey",
-            fontSize = 16.sp,
-            color = Color.White
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        ) {
-
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-
-                // Name
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    isError = nameError.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (nameError.isNotEmpty()) {
-                    Text(nameError, color = Color.Red, fontSize = 12.sp)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Email
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    isError = emailError.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (emailError.isNotEmpty()) {
-                    Text(emailError, color = Color.Red, fontSize = 12.sp)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Password
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    isError = passwordError.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (passwordError.isNotEmpty()) {
-                    Text(passwordError, color = Color.Red, fontSize = 12.sp)
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Create Account Button
-                Button(
-                    onClick = {
-
-                        nameError = if (!hasRegisterText(name)) "Name is required" else ""
-                        emailError = if (!hasRegisterText(email)) "Email is required" else ""
-                        passwordError = if (password.length < 6) "Min 6 characters" else ""
-
-                        val isValid = nameError.length == 0
-                                && emailError.length == 0
-                                && passwordError.length == 0
-
-                        if (isValid) {
-                            navController.navigate("home") {
-                                popUpTo("register") { inclusive = true }
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults
-                        .buttonColors(Color(0xFF00B55D)),
-
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(16.dp)
-
-                ) {
-                    Text("Create Account", color = Color.White)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Go to Login
-                Row {
-                    Text("Already have an account? ")
-
-                    Text(
-                        text = "Sign In",
-                        color = Color(0xFF00B55D),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable {
-                            navController.navigate("login") {
-                                popUpTo("register") { inclusive = true }
-                            }
-                        }
-                    )
-                }
-            }
+    while (start < end) {
+        val char = value[start]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
         }
+        start = start + 1
     }
-}
 
- */
+    while (end > start) {
+        val char = value[end - 1]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            break
+        }
+        end = end - 1
+    }
+
+    return if (start >= end) "" else value.substring(start, end)
+}
