@@ -123,68 +123,23 @@ fun CommonQuestionScreen() {
                 ) {
                     var itemIndex = 0
                     while (itemIndex < faqItems.size) {
-                        val faqItem = faqItems[itemIndex]
-                        val isExpanded = expandedIndex == itemIndex
+                        val currentIndex = itemIndex
+                        val faqItem = faqItems[currentIndex]
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    expandedIndex = if (isExpanded) {
-                                        -1
-                                    } else {
-                                        itemIndex
-                                    }
+                        FaqItemRow(
+                            faqItem = faqItem,
+                            primaryGreen = primaryGreen,
+                            isExpanded = expandedIndex == currentIndex,
+                            onToggle = {
+                                expandedIndex = if (expandedIndex == currentIndex) {
+                                    -1
+                                } else {
+                                    currentIndex
                                 }
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(color = primaryGreen, shape = RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = faqItem.question,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.Right
-                                    )
-                                }
-
-                                Text(
-                                    text = if (isExpanded) "−" else "+",
-                                    color = primaryGreen,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 20.sp,
-                                    modifier = Modifier.padding(horizontal = 10.dp)
-                                )
                             }
+                        )
 
-                            if (isExpanded) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = faqItem.answer,
-                                    color = Color(0xFF1F2937),
-                                    fontSize = 14.sp,
-                                    lineHeight = 22.sp,
-                                    textAlign = TextAlign.Right,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            color = Color(0xFFF3F4F6),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(12.dp)
-                                )
-                            }
-                        }
-
-                        if (itemIndex < faqItems.size - 1) {
+                        if (currentIndex < faqItems.size - 1) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(
                                 modifier = Modifier
@@ -199,6 +154,68 @@ fun CommonQuestionScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FaqItemRow(
+    faqItem: FaqItem,
+    primaryGreen: Color,
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(color = primaryGreen, shape = RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = faqItem.question,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Right
+                )
+            }
+
+            Text(
+                text = if (isExpanded) "−" else "+",
+                color = primaryGreen,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 20.sp,
+                modifier = Modifier
+                    .padding(horizontal = 10.dp)
+                    .clickable(onClick = onToggle)
+            )
+        }
+
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = faqItem.answer,
+                color = Color(0xFF1F2937),
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Right,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFFF3F4F6),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp)
+            )
         }
     }
 }
