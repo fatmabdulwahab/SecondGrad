@@ -20,9 +20,8 @@ object HandModelProvider {
     fun openModelBuffer(context: Context): java.nio.MappedByteBuffer? {
         val modelFile = prepareModelFile(context) ?: return null
 
-        var randomAccessFile: RandomAccessFile? = null
         return try {
-            randomAccessFile = RandomAccessFile(modelFile, "r")
+            val randomAccessFile = RandomAccessFile(modelFile, "r")
             randomAccessFile.channel.map(
                 FileChannel.MapMode.READ_ONLY,
                 0,
@@ -31,14 +30,6 @@ object HandModelProvider {
         } catch (throwable: Throwable) {
             Log.e("HAND_MODEL", throwable.message.toString())
             null
-        } finally {
-            if (randomAccessFile != null) {
-                try {
-                    randomAccessFile.close()
-                } catch (closeError: Throwable) {
-                    Log.e("HAND_MODEL", closeError.message.toString())
-                }
-            }
         }
     }
 

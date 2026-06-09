@@ -22,7 +22,7 @@ class RouteRepository {
     }
 
     suspend fun sendVoice(file: File): ApiMessageResponse {
-        val requestBody = file.asRequestBody("audio/wav".toMediaTypeOrNull())
+        val requestBody = file.asRequestBody("audio/mp4".toMediaTypeOrNull())
         val voicePart = MultipartBody.Part.createFormData(
             name = "file",
             filename = file.name,

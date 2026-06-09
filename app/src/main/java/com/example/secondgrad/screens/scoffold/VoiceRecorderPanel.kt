@@ -2,11 +2,12 @@ package com.example.secondgrad.screens.scoffold
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.media.AudioFormat
-import android.media.AudioRecord
+import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.os.Build
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -58,13 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.io.File
-import java.io.RandomAccessFile
-import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_RECORD_SECONDS = 10
-private const val WAV_SAMPLE_RATE = 16000
-private const val WAV_CHANNEL_COUNT = 1
-private const val WAV_BITS_PER_SAMPLE = 16
+private const val MIN_RECORD_SECONDS = 2
+private const val MIN_RECORD_BYTES = 8000L
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -76,20 +74,18 @@ fun VoiceRecorderPanel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val recordingFlag = remember { AtomicBoolean(false) }
-
-    var audioRecord by remember { mutableStateOf<AudioRecord?>(null) }
-    var recordingThread by remember { mutableStateOf<Thread?>(null) }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var recordedFile by remember { mutableStateOf<File?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
+    var shouldStartAfterPermission by remember { mutableStateOf(false) }
 
     fun releaseRecorder() {
-        val recorder = audioRecord
-        if (recorder != null) {
-            recorder.release()
+        val activeRecorder = recorder
+        if (activeRecorder != null) {
+            activeRecorder.release()
         }
-        audioRecord = null
+        recorder = null
     }
 
     fun deleteRecordedFile() {
@@ -101,92 +97,51 @@ fun VoiceRecorderPanel(
         elapsedSeconds = 0
     }
 
-    fun waitForRecordingThread() {
-        val thread = recordingThread
-        if (thread != null) {
-            try {
-                thread.join(500)
-            } catch (interrupted: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-        }
-        recordingThread = null
-    }
-
     fun stopRecording() {
-        recordingFlag.set(false)
-        isRecording = false
-        waitForRecordingThread()
-
-        val recorder = audioRecord
-        if (recorder != null) {
-            try {
-                if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                    recorder.stop()
-                }
-            } catch (_: Exception) {
-                Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        releaseRecorder()
-    }
-
-    fun startRecording() {
-        stopRecording()
-        deleteRecordedFile()
-
-        val minBufferSize = AudioRecord.getMinBufferSize(
-            WAV_SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT
-        )
-
-        if (minBufferSize <= 0) {
-            Toast.makeText(context, "مش قادرين نجهز التسجيل على الجهاز ده", Toast.LENGTH_SHORT).show()
+        val activeRecorder = recorder
+        if (activeRecorder == null) {
             return
         }
 
-        val bufferSize = minBufferSize * 2
-        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.wav")
+        try {
+            activeRecorder.stop()
+        } catch (exception: Exception) {
+            deleteRecordedFile()
+            Toast.makeText(context, "التسجيل قصير جدًا، جربي مرة تانية", Toast.LENGTH_SHORT).show()
+        }
+
+        releaseRecorder()
+        isRecording = false
+    }
+
+    fun startRecording() {
+        releaseRecorder()
+
+        val outputFile = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+        val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(context)
+        } else {
+            @Suppress("DEPRECATION")
+            MediaRecorder()
+        }
 
         try {
-            val recorder = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                WAV_SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                bufferSize
-            )
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mediaRecorder.setAudioSamplingRate(44100)
+            mediaRecorder.setAudioEncodingBitRate(128000)
+            mediaRecorder.setOutputFile(outputFile.absolutePath)
+            mediaRecorder.prepare()
+            mediaRecorder.start()
 
-            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                recorder.release()
-                Toast.makeText(context, "مش قادرين نبدأ التسجيل", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            recordingFlag.set(true)
-            recorder.startRecording()
-
-            audioRecord = recorder
+            recorder = mediaRecorder
             recordedFile = outputFile
             elapsedSeconds = 0
             isRecording = true
-
-            val thread = Thread {
-                writeWavFile(
-                    recorder = recorder,
-                    file = outputFile,
-                    keepRecording = recordingFlag,
-                    bufferSize = bufferSize
-                )
-            }
-            recordingThread = thread
-            thread.start()
-        } catch (_: Exception) {
+        } catch (exception: Exception) {
+            mediaRecorder.release()
             outputFile.delete()
-            recordingFlag.set(false)
-            releaseRecorder()
             Toast.makeText(context, "مش قادرين نبدأ التسجيل", Toast.LENGTH_SHORT).show()
         }
     }
@@ -194,14 +149,26 @@ fun VoiceRecorderPanel(
     val recordPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (isGranted) {
+        if (isGranted && shouldStartAfterPermission) {
             startRecording()
-        } else {
+        } else if (!isGranted) {
             Toast.makeText(context, "محتاجين صلاحية المايك عشان التسجيل", Toast.LENGTH_SHORT).show()
         }
+        shouldStartAfterPermission = false
     }
 
-    LaunchedEffect(Unit) {
+    fun requestRecording() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            startRecording()
+            return
+        }
+
+        shouldStartAfterPermission = true
         recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
@@ -218,8 +185,18 @@ fun VoiceRecorderPanel(
 
     DisposableEffect(Unit) {
         onDispose {
-            recordingFlag.set(false)
-            stopRecording()
+            if (isRecording) {
+                val activeRecorder = recorder
+                if (activeRecorder != null) {
+                    try {
+                        activeRecorder.stop()
+                    } catch (exception: Exception) {
+                        // Ignore stop errors while disposing the UI.
+                    }
+                }
+            }
+
+            releaseRecorder()
 
             val file = recordedFile
             if (file != null) {
@@ -242,7 +219,7 @@ fun VoiceRecorderPanel(
                 recordedFile = recordedFile,
                 isSending = isSending,
                 elapsedSeconds = elapsedSeconds,
-                onRecordAgain = { recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                onRecordAgain = { requestRecording() },
                 onCameraClick = onCameraClick,
                 onSendVoice = onSendVoice,
                 onDelete = {
@@ -312,6 +289,8 @@ private fun StoppedControls(
     onSendVoice: (File) -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth(0.92f)
@@ -331,9 +310,13 @@ private fun StoppedControls(
         Spacer(modifier = Modifier.width(10.dp))
 
         Text(
-            text = "Stopped",
+            text = if (recordedFile == null) {
+                "اضغطي المايك وقولي: من [مكان] إلى [مكان]"
+            } else {
+                "التسجيل جاهز للإرسال"
+            },
             color = Color(0xFF1F2937),
-            fontSize = 15.sp,
+            fontSize = if (recordedFile == null) 13.sp else 15.sp,
             fontWeight = FontWeight.SemiBold
         )
 
@@ -369,11 +352,12 @@ private fun StoppedControls(
 
         Button(
             onClick = {
-                if (recordedFile != null) {
-                    onSendVoice(recordedFile)
+                val file = recordedFile
+                if (file != null && isRecordingReady(file, elapsedSeconds, context)) {
+                    onSendVoice(file)
                 }
             },
-            enabled = recordedFile != null && !isSending,
+            enabled = recordedFile != null && !isSending && elapsedSeconds >= MIN_RECORD_SECONDS,
             shape = RoundedCornerShape(22.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
             contentPadding = ButtonDefaults.ContentPadding,
@@ -534,78 +518,34 @@ private fun AudioPlaybackBar(
     }
 }
 
-private fun writeWavFile(
-    recorder: AudioRecord,
-    file: File,
-    keepRecording: AtomicBoolean,
-    bufferSize: Int
-) {
-    val buffer = ByteArray(bufferSize)
-    var audioBytesWritten = 0
-    var randomAccessFile: RandomAccessFile? = null
-
-    try {
-        randomAccessFile = RandomAccessFile(file, "rw")
-        writeWavHeader(randomAccessFile, 0)
-
-        while (keepRecording.get()) {
-            val read = recorder.read(buffer, 0, buffer.size)
-            if (read > 0) {
-                randomAccessFile.write(buffer, 0, read)
-                audioBytesWritten += read
-            }
-        }
-
-        updateWavHeader(randomAccessFile, audioBytesWritten)
-    } catch (exception: Exception) {
-        file.delete()
-    } finally {
-        randomAccessFile?.close()
-    }
-}
-
-private fun writeWavHeader(file: RandomAccessFile, audioLength: Int) {
-    file.setLength(0)
-    file.writeBytes("RIFF")
-    writeIntLittleEndian(file, 36 + audioLength)
-    file.writeBytes("WAVE")
-    file.writeBytes("fmt ")
-    writeIntLittleEndian(file, 16)
-    writeShortLittleEndian(file, 1)
-    writeShortLittleEndian(file, WAV_CHANNEL_COUNT)
-    writeIntLittleEndian(file, WAV_SAMPLE_RATE)
-    writeIntLittleEndian(file, WAV_SAMPLE_RATE * WAV_CHANNEL_COUNT * WAV_BITS_PER_SAMPLE / 8)
-    writeShortLittleEndian(file, WAV_CHANNEL_COUNT * WAV_BITS_PER_SAMPLE / 8)
-    writeShortLittleEndian(file, WAV_BITS_PER_SAMPLE)
-    file.writeBytes("data")
-    writeIntLittleEndian(file, audioLength)
-}
-
-private fun updateWavHeader(file: RandomAccessFile, audioLength: Int) {
-    file.seek(4)
-    writeIntLittleEndian(file, 36 + audioLength)
-    file.seek(40)
-    writeIntLittleEndian(file, audioLength)
-}
-
-private fun writeIntLittleEndian(file: RandomAccessFile, value: Int) {
-    file.write(value and 0xff)
-    file.write(value shr 8 and 0xff)
-    file.write(value shr 16 and 0xff)
-    file.write(value shr 24 and 0xff)
-}
-
-private fun writeShortLittleEndian(file: RandomAccessFile, value: Int) {
-    file.write(value and 0xff)
-    file.write(value shr 8 and 0xff)
-}
-
 private fun formatSeconds(seconds: Int): String {
     return if (seconds < 10) {
         "0$seconds"
     } else {
         seconds.toString()
     }
+}
+
+private fun isRecordingReady(file: File, elapsedSeconds: Int, context: android.content.Context): Boolean {
+    if (elapsedSeconds < MIN_RECORD_SECONDS) {
+        Toast.makeText(
+            context,
+            "سجّلي على الأقل ثانيتين واضحين قبل الإرسال",
+            Toast.LENGTH_SHORT
+        ).show()
+        return false
+    }
+
+    if (!file.exists() || file.length() < MIN_RECORD_BYTES) {
+        Toast.makeText(
+            context,
+            "التسجيل ضعيف، جرّبي تسجّلي تاني بوضوح",
+            Toast.LENGTH_SHORT
+        ).show()
+        return false
+    }
+
+    return true
 }
 
 private fun clampSeconds(seconds: Int): Int {
