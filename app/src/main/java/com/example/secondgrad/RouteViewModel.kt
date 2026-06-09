@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import retrofit2.HttpException
 import java.io.File
 
 data class RouteUiState(
@@ -50,6 +51,7 @@ class RouteViewModel : ViewModel() {
     val closeVoicePanel = _closeVoicePanel.asStateFlow()
 
     private var isVoiceSendInProgress = false
+    private var routeSearchToken = 0
 
     fun onFromTextChange(value: String) {
         _fromText.value = value
@@ -62,14 +64,17 @@ class RouteViewModel : ViewModel() {
     }
 
     fun searchRoutes() {
-        val userLocation = _fromText.value
-        val destination = _toText.value
+        val userLocation = sanitizeFromLocation(_fromText.value)
+        val destination = sanitizeToLocation(_toText.value)
 
-        if (!hasText(userLocation) || !hasText(destination)) {
+        if (!canFillLocationField(userLocation) || !canFillLocationField(destination)) {
             _errorMessage.value = "اكتبي نقطة البداية والوجهة"
             _uiState.value = _uiState.value.copy(errorMessage = "اكتبي نقطة البداية والوجهة")
             return
         }
+
+        onFromTextChange(userLocation)
+        onToTextChange(destination)
 
         viewModelScope.launch {
             runRouteSearch(userLocation, destination, showErrors = true)
@@ -81,6 +86,21 @@ class RouteViewModel : ViewModel() {
         destination: String,
         showErrors: Boolean
     ): String? {
+        val cleanFrom = sanitizeFromLocation(userLocation)
+        val cleanTo = sanitizeToLocation(destination)
+
+        if (!canFillLocationField(cleanFrom) || !canFillLocationField(cleanTo)) {
+            val invalidMessage = "اكتبي نقطة البداية والوجهة بوضوح"
+            if (showErrors) {
+                _errorMessage.value = invalidMessage
+                _uiState.value = _uiState.value.copy(errorMessage = invalidMessage)
+            }
+            return invalidMessage
+        }
+
+        routeSearchToken = routeSearchToken + 1
+        val searchToken = routeSearchToken
+
         _isLoading.value = true
         if (showErrors) {
             _errorMessage.value = null
@@ -92,10 +112,14 @@ class RouteViewModel : ViewModel() {
         try {
             val response = repository.searchRoutes(
                 SearchRouteRequest(
-                    userLocation = userLocation,
-                    destination = destination
+                    userLocation = cleanFrom,
+                    destination = cleanTo
                 )
             )
+
+            if (searchToken != routeSearchToken) {
+                return null
+            }
 
             _routes.value = response.data
             _uiState.value = _uiState.value.copy(routes = response.data)
@@ -108,17 +132,23 @@ class RouteViewModel : ViewModel() {
                 }
             }
         } catch (throwable: Throwable) {
+            if (searchToken != routeSearchToken) {
+                return null
+            }
+
             _routes.value = java.util.ArrayList<RouteData>()
             _uiState.value = _uiState.value.copy(routes = java.util.ArrayList<RouteData>())
-            resultMessage = throwable.localizedMessage ?: "حصل خطأ في الاتصال"
+            resultMessage = mapRouteSearchError(throwable)
             if (showErrors) {
                 _errorMessage.value = resultMessage
                 _uiState.value = _uiState.value.copy(errorMessage = resultMessage)
             }
         }
 
-        _isLoading.value = false
-        _uiState.value = _uiState.value.copy(isLoading = false)
+        if (searchToken == routeSearchToken) {
+            _isLoading.value = false
+            _uiState.value = _uiState.value.copy(isLoading = false)
+        }
         return resultMessage
     }
 
@@ -160,12 +190,20 @@ class RouteViewModel : ViewModel() {
                         }
                     } else {
                         val fieldValues = buildVoiceFieldValues(voiceResult)
-                        applyVoiceFieldsToUi(fieldValues.origin, fieldValues.destination)
+                        val fromForSearch = sanitizeFromLocation(fieldValues.origin)
+                        val toForSearch = sanitizeToLocation(fieldValues.destination)
+                        val hasFrom = canFillLocationField(fromForSearch)
+                        val hasTo = canFillLocationField(toForSearch)
 
-                        val hasFrom = hasFilledLocationField(_fromText.value)
-                        val hasTo = hasFilledLocationField(_toText.value)
+                        if (hasFrom) {
+                            onFromTextChange(fromForSearch)
+                        }
+                        if (hasTo) {
+                            onToTextChange(toForSearch)
+                        }
+
                         message = if (hasFrom && hasTo) {
-                            val searchError = runRouteSearch(_fromText.value, _toText.value, showErrors = false)
+                            val searchError = runRouteSearch(fromForSearch, toForSearch, showErrors = false)
                             _closeVoicePanel.value = true
                             if (searchError == null) {
                                 "تم استخراج الرحلة والبحث عن الطرق"
@@ -344,27 +382,86 @@ class RouteViewModel : ViewModel() {
             }
         }
 
-        return ParsedVoiceRoute(fromValue, toValue)
-    }
-
-    private fun applyVoiceFieldsToUi(fromValue: String, toValue: String) {
-        if (canFillLocationField(fromValue)) {
-            onFromTextChange(fromValue)
-        }
-        if (canFillLocationField(toValue)) {
-            onToTextChange(toValue)
-        }
-    }
-
-    private fun hasFilledLocationField(value: String): Boolean {
-        return canFillLocationField(value)
+        return ParsedVoiceRoute(
+            sanitizeFromLocation(fromValue),
+            sanitizeToLocation(toValue)
+        )
     }
 
     private fun canFillLocationField(value: String): Boolean {
         if (!hasText(value) || isFillerText(value)) {
             return false
         }
-        return normalizeVoiceText(value).length >= 2
+
+        val normalized = normalizeVoiceText(value)
+        if (normalized.length < 3) {
+            return false
+        }
+
+        val blockedWords = arrayOf("من", "الى", "إلى", "to", "from")
+        var blockedIndex = 0
+        while (blockedIndex < blockedWords.size) {
+            if (normalized == blockedWords[blockedIndex]) {
+                return false
+            }
+            blockedIndex = blockedIndex + 1
+        }
+
+        return true
+    }
+
+    private fun sanitizeFromLocation(value: String): String {
+        return sanitizeLocationText(value, isFromField = true)
+    }
+
+    private fun sanitizeToLocation(value: String): String {
+        return sanitizeLocationText(value, isFromField = false)
+    }
+
+    private fun sanitizeLocationText(value: String, isFromField: Boolean): String {
+        var text = trimText(value)
+        if (!hasText(text) || isFillerText(text)) {
+            return ""
+        }
+
+        val prefixes = if (isFromField) {
+            arrayOf("من ", "من")
+        } else {
+            arrayOf("إلى ", "الى ", "إلى", "الى", " to ", "to ")
+        }
+
+        var prefixIndex = 0
+        while (prefixIndex < prefixes.size) {
+            val prefix = prefixes[prefixIndex]
+            if (text.length >= prefix.length && text.substring(0, prefix.length) == prefix) {
+                text = trimText(text.substring(prefix.length))
+                break
+            }
+            prefixIndex = prefixIndex + 1
+        }
+
+        if (!hasText(text) || isFillerText(text)) {
+            return ""
+        }
+
+        return text
+    }
+
+    private fun mapRouteSearchError(throwable: Throwable): String {
+        if (throwable is HttpException && throwable.code() == 404) {
+            return "مفيش طرق متاحة للبحث ده"
+        }
+
+        val message = throwable.localizedMessage ?: ""
+        if (message.indexOf("404") >= 0) {
+            return "مفيش طرق متاحة للبحث ده"
+        }
+
+        return if (message.length > 0) {
+            message
+        } else {
+            "حصل خطأ في الاتصال"
+        }
     }
 
     private fun getJsonText(jsonObject: JSONObject, vararg keys: String): String {

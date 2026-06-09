@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import retrofit2.HttpException
 import java.io.File
 
 class RouteRepository {
@@ -17,11 +18,24 @@ class RouteRepository {
     suspend fun searchRoutes(
         request: SearchRouteRequest
     ): RouteResponse {
-        return TransGuideRetrofit.api.searchRoutes(
-            pageIndex = 1,
-            pageSize = 10,
-            request = request
-        )
+        return try {
+            TransGuideRetrofit.api.searchRoutes(
+                pageIndex = 1,
+                pageSize = 10,
+                request = request
+            )
+        } catch (exception: HttpException) {
+            if (exception.code() == 404) {
+                RouteResponse(
+                    pageIndex = 1,
+                    pageSize = 10,
+                    count = 0,
+                    data = java.util.ArrayList()
+                )
+            } else {
+                throw exception
+            }
+        }
     }
 
     suspend fun sendVoice(file: File): VoiceSendResponse {
