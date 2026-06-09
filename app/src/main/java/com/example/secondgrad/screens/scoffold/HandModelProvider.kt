@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.io.RandomAccessFile
 import java.nio.channels.FileChannel
 
@@ -19,8 +20,10 @@ object HandModelProvider {
     fun openModelBuffer(context: Context): java.nio.MappedByteBuffer? {
         val modelFile = prepareModelFile(context) ?: return null
 
+        var randomAccessFile: RandomAccessFile? = null
         return try {
-            RandomAccessFile(modelFile, "r").channel.map(
+            randomAccessFile = RandomAccessFile(modelFile, "r")
+            randomAccessFile.channel.map(
                 FileChannel.MapMode.READ_ONLY,
                 0,
                 modelFile.length()
@@ -28,6 +31,14 @@ object HandModelProvider {
         } catch (throwable: Throwable) {
             Log.e("HAND_MODEL", throwable.message.toString())
             null
+        } finally {
+            if (randomAccessFile != null) {
+                try {
+                    randomAccessFile.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
         }
     }
 
@@ -39,16 +50,7 @@ object HandModelProvider {
         }
 
         return try {
-            context.assets.open(MODEL_FILE_NAME).use { input ->
-                FileOutputStream(modelFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var read = input.read(buffer)
-                    while (read > 0) {
-                        output.write(buffer, 0, read)
-                        read = input.read(buffer)
-                    }
-                }
-            }
+            copyAssetToFile(context, MODEL_FILE_NAME, modelFile)
 
             if (modelFile.exists() && modelFile.length() >= MIN_MODEL_BYTES) {
                 modelFile
@@ -62,6 +64,39 @@ object HandModelProvider {
                 modelFile.delete()
             }
             null
+        }
+    }
+
+    private fun copyAssetToFile(context: Context, assetName: String, targetFile: File) {
+        var input: InputStream? = null
+        var output: FileOutputStream? = null
+
+        try {
+            input = context.assets.open(assetName)
+            output = FileOutputStream(targetFile)
+
+            val buffer = ByteArray(8192)
+            var bytesRead = input.read(buffer)
+            while (bytesRead > 0) {
+                output.write(buffer, 0, bytesRead)
+                bytesRead = input.read(buffer)
+            }
+        } finally {
+            if (output != null) {
+                try {
+                    output.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
+
+            if (input != null) {
+                try {
+                    input.close()
+                } catch (closeError: Throwable) {
+                    Log.e("HAND_MODEL", closeError.message.toString())
+                }
+            }
         }
     }
 }
