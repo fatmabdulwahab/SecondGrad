@@ -56,6 +56,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    androidResources {
+        noCompress += listOf("task", "tflite")
+    }
 }
 
 dependencies {

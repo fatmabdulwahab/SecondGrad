@@ -1,13 +1,18 @@
 package com.example.secondgrad.screens.scoffold
 
 
+import android.Manifest
 import android.annotation.SuppressLint
 import com.example.secondgrad.R
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,28 +25,87 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.text.input.KeyboardType
+import com.example.secondgrad.RouteViewModel
 
 @SuppressLint("ContextCastToActivity")
 @Composable
-fun SearchSection(context: Context ) {
+fun SearchSection(viewModel: RouteViewModel) {
 
-//
-//    val fromText by viewModel.fromText.collectAsState()
-//    val toText by viewModel.toText.collectAsState()
+    val fromText by viewModel.fromText.collectAsState()
+    val toText by viewModel.toText.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    val isVoiceSending by viewModel.isVoiceSending.collectAsState()
+    val voiceMessage by viewModel.voiceMessage.collectAsState()
+    val closeVoicePanel by viewModel.closeVoicePanel.collectAsState()
 
-    // فقط بنراقب الديالوج يفتح ولا يقفل
+
     var isCameraActive by remember { mutableStateOf(false) }
-    val activity = LocalContext.current as ComponentActivity
+    var isVoiceActive by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val activity = context.findComponentActivity()
+    val arabicFieldTextStyle = TextStyle(
+        textAlign = TextAlign.End,
+        textDirection = TextDirection.ContentOrRtl
+    )
 
-    //val viewModel: RouteViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            isCameraActive = true
+        } else {
+            Toast.makeText(context, "اسمحي بصلاحية الكاميرا الأول", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun openCameraDialog() {
+        if (activity == null) {
+            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasCameraPermission) {
+            isCameraActive = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        val message = errorMessage
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(voiceMessage) {
+        val message = voiceMessage
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            val shouldClosePanel = closeVoicePanel
+            viewModel.clearVoiceMessage()
+            if (shouldClosePanel) {
+                isVoiceActive = false
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth(0.96f)
@@ -56,7 +120,7 @@ fun SearchSection(context: Context ) {
             modifier = Modifier.padding(top = 7.dp)
         ) {
             Text(
-                text = "SEARCH BY VOICE & SIGN",
+                text = if (isVoiceActive) "SEARCH BY VOICE" else "SEARCH BY VOICE & SIGN",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF077C32),
@@ -69,24 +133,38 @@ fun SearchSection(context: Context ) {
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // استدعاء شريط الصوت والكاميرا وربطه بالـ State
-        VoiceCameraSearch(
-            onMicClick = { /* سنضيفها لاحقاً */ },
-            onCameraGranted = { isCameraActive = true }
-        )
+        if (isVoiceActive) {
+            VoiceRecorderPanel(
+                isSending = isVoiceSending,
+                onSendVoice = viewModel::sendVoice,
+                onCameraClick = { openCameraDialog() },
+                onDeleteRecording = { isVoiceActive = false }
+            )
+        } else {
+            // استدعاء شريط الصوت والكاميرا وربطه بالـ State
+            VoiceCameraSearch(
+                onMicClick = { isVoiceActive = true },
+                onCameraGranted = { isCameraActive = true }
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         // استدعاء الـ Dialog المنفصل هنا ونمرر له الأكشنز
-        if (isCameraActive) {
+        if (isCameraActive && activity != null) {
             CameraTranslationDialog(
                 activity = activity,
                 onDismiss = { isCameraActive = false },
-                onSaveSuccess = {
-                    // الأكشن لما يضغط حفظ
+                onSaveSuccess = { finalWord ->
+                    if (finalWord.length > 0) {
+                        viewModel.onFromTextChange(finalWord)
+                    }
                     isCameraActive = false
                 }
             )
+        } else if (isCameraActive) {
+            isCameraActive = false
+            Toast.makeText(context, "مش قادرين نفتح الكاميرا من الشاشة دي", Toast.LENGTH_SHORT).show()
         }
 
         // حقل نص (From)
@@ -104,11 +182,12 @@ fun SearchSection(context: Context ) {
             )
 
             OutlinedTextField(
-                value =  "",
-                onValueChange = {   },
+                value = fromText,
+                onValueChange = viewModel::onFromTextChange,
 
                 label = { Text("From") },
                 singleLine = true,
+                textStyle = arabicFieldTextStyle,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text
                 ),
@@ -143,10 +222,11 @@ fun SearchSection(context: Context ) {
             )
 
             OutlinedTextField(
-                value =  "",
-                onValueChange = {   },
+                value = toText,
+                onValueChange = viewModel::onToTextChange,
                 label = { Text("To") },
                 singleLine = true,
+                textStyle = arabicFieldTextStyle,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text
                 ),
@@ -158,48 +238,57 @@ fun SearchSection(context: Context ) {
 
         // الأزرار السفليّة (Search & Google Maps)
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
         ) {
 
 
-          //  val viewModel: RouteViewModel = viewModel()
-                  Button(
-                onClick = {
-
-
-                },
+            Button(
+                onClick = viewModel::searchRoutes,
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).weight(1f)
+                modifier = Modifier
+                    .height(40.dp)
+                    .weight(1f)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.img_5),
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = "Search", color = Color.White, fontSize = 12.sp)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_5),
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "Search", color = Color.White, fontSize = 12.sp)
+                }
             }
 
             Button(
                 onClick = {
-//
-//                   val location = toText.ifBlank { fromText }
-//
-//                    if (location.isNotBlank()) {
-//
-//                        val intent = Intent(
-//                            Intent.ACTION_VIEW,
-//                            "geo:0,0?q=${Uri.encode(location)}".toUri()
-//                        )
-//
-//                        context.startActivity(intent)
-//                    }
+                    val location = if (hasText(toText)) toText else fromText
+
+                    if (hasText(location)) {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            "geo:0,0?q=${Uri.encode(location)}".toUri()
+                        )
+
+                        context.startActivity(intent)
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2EAD60)),
                 shape = RoundedCornerShape(15.dp),
-                modifier = Modifier.height(40.dp).weight(1.5f)
+                modifier = Modifier
+                    .height(40.dp)
+                    .weight(1.5f)
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.img_7),
@@ -227,4 +316,24 @@ fun SearchSection(context: Context ) {
             )
         }
     }
+}
+
+private tailrec fun Context.findComponentActivity(): ComponentActivity? {
+    return when (this) {
+        is ComponentActivity -> this
+        is ContextWrapper -> baseContext.findComponentActivity()
+        else -> null
+    }
+}
+
+private fun hasText(value: String): Boolean {
+    var index = 0
+    while (index < value.length) {
+        val char = value[index]
+        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
+            return true
+        }
+        index++
+    }
+    return false
 }

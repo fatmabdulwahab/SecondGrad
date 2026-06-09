@@ -10,7 +10,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
@@ -22,12 +24,14 @@ import java.util.concurrent.Executors
 @Composable
 fun CameraPreview(
     activity: ComponentActivity,
-    signViewModel: SignViewModel
+    signViewModel: SignViewModel,
+    onError: (String) -> Unit
 ) {
 
     val cameraExecutor = remember {
         Executors.newSingleThreadExecutor()
     }
+    val isHandReady = remember { mutableStateOf(false) }
 
     val handLandmarkerHelper = remember(signViewModel) {
         HandLandmarkerHelper(
@@ -45,12 +49,23 @@ fun CameraPreview(
 
 
     LaunchedEffect(Unit) {
-        handLandmarkerHelper.setupHandLandmarker()
-
-        // إنشاء Session مرة واحدة
-        signViewModel.createSession()
+        val isReady = handLandmarkerHelper.setupHandLandmarker()
+        isHandReady.value = isReady
+        if (!isReady) {
+            onError("ملف تشغيل الكاميرا غير موجود أو غير صالح")
+        }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            handLandmarkerHelper.close()
+            cameraExecutor.shutdown()
+        }
+    }
+
+    if (!isHandReady.value) {
+        return
+    }
 
     AndroidView(
         factory = { ctx ->
@@ -62,73 +77,78 @@ fun CameraPreview(
 
             cameraProviderFuture.addListener({
 
-                val cameraProvider =
-                    cameraProviderFuture.get()
+                try {
+                    val cameraProvider =
+                        cameraProviderFuture.get()
 
-                val preview =
-                    Preview.Builder().build()
+                    val preview =
+                        Preview.Builder().build()
 
-                val imageAnalysis =
-                    ImageAnalysis.Builder()
-                        .setBackpressureStrategy(
-                            ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                        )
-                        .build()
+                    val imageAnalysis =
+                        ImageAnalysis.Builder()
+                            .setBackpressureStrategy(
+                                ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                            )
+                            .build()
 
-                imageAnalysis.setAnalyzer(
-                    cameraExecutor
-                ) { imageProxy ->
+                    imageAnalysis.setAnalyzer(
+                        cameraExecutor
+                    ) { imageProxy ->
+                        try {
+                            val handLandmarker = handLandmarkerHelper.getHandLandmarker()
+                            if (handLandmarker == null) {
+                                return@setAnalyzer
+                            }
 
-                    val bitmap =
-                        imageProxy.toBitmap()
+                            val bitmap =
+                                imageProxy.toBitmap()
 
-                    val mpImage =
-                        BitmapImageBuilder(bitmap).build()
+                            val mpImage =
+                                BitmapImageBuilder(bitmap).build()
 
-                    val frameTime =
-                        System.currentTimeMillis()
+                            val frameTime =
+                                System.currentTimeMillis()
 
-                    handLandmarkerHelper
-                        .getHandLandmarker()
-                        ?.detectAsync(
-                            mpImage,
-                            frameTime
-                        )
+                            handLandmarker.detectAsync(
+                                mpImage,
+                                frameTime
+                            )
+                        } catch (throwable: Throwable) {
+                            Log.e("CAMERA_ANALYZER_ERROR", throwable.message.toString())
+                        } finally {
+                            imageProxy.close()
+                        }
+                    }
 
-                    imageProxy.close()
-                }
+                    val cameraSelector =
+                        CameraSelector.DEFAULT_BACK_CAMERA
 
-                val cameraSelector =
-                    CameraSelector.DEFAULT_BACK_CAMERA
-
-                preview.setSurfaceProvider(
-                    previewView.surfaceProvider
-                )
-
-                if (
-                    ActivityCompat.checkSelfPermission(
-                        ctx,
-                        Manifest.permission.CAMERA
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-
-                    ActivityCompat.requestPermissions(
-                        activity,
-                        arrayOf(Manifest.permission.CAMERA),
-                        100
+                    preview.setSurfaceProvider(
+                        previewView.surfaceProvider
                     )
 
-                    return@addListener
+                    if (
+                        ActivityCompat.checkSelfPermission(
+                            ctx,
+                            Manifest.permission.CAMERA
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        onError("اسمحي بصلاحية الكاميرا الأول")
+                        return@addListener
+                    }
+
+                    cameraProvider.unbindAll()
+
+                    cameraProvider.bindToLifecycle(
+                        activity,
+                        cameraSelector,
+                        preview,
+                        imageAnalysis
+                    )
+                } catch (throwable: Throwable) {
+                    Log.e("CAMERA_BIND_ERROR", throwable.message.toString())
+                    onError("مش قادرين نشغل الكاميرا على الجهاز ده")
                 }
-
-                cameraProvider.unbindAll()
-
-                cameraProvider.bindToLifecycle(
-                    activity,
-                    cameraSelector,
-                    preview,
-                    imageAnalysis
-                )
 
             }, ContextCompat.getMainExecutor(ctx))
 

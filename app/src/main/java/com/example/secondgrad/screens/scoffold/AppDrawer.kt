@@ -4,9 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Segment
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.Icon
@@ -14,38 +12,54 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.secondgrad.R
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import androidx.navigation.NavHostController
+import com.example.secondgrad.R
 
 @Composable
 fun AppDrawer(
-    scope: CoroutineScope,
     drawerState: DrawerState,
-    navController: NavHostController)
-{
+    navController: NavHostController
+) {
     val primaryGreen = Color(0xFF59B484)
+    var navigationTarget by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(navigationTarget) {
+        val target = navigationTarget
+        if (target != null) {
+            drawerState.close()
+            navController.navigate(target)
+            navigationTarget = null
+        }
+    }
+
+    fun navigateTo(route: String) {
+        navigationTarget = route
+    }
 
     ModalDrawerSheet {
-
-        // عنوان القائمة
         Text(
             text = "Menu",
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(24.dp)
         )
 
-        // العناصر
         NavigationDrawerItem(
-            label = { Text("Dashboard",
-                    color = primaryGreen)
-                    },
+            label = {
+                Text(
+                    "Dashboard",
+                    color = primaryGreen
+                )
+            },
             selected = false,
             icon = {
                 Image(
@@ -54,28 +68,24 @@ fun AppDrawer(
                     modifier = Modifier.size(24.dp)
                 )
             },
-            onClick = { scope.launch { drawerState.close() } }
+            onClick = { navigateTo("dashboard") }
         )
 
         NavigationDrawerItem(
-            label = { Text("History",color = primaryGreen) },
+            label = { Text("History", color = primaryGreen) },
             selected = false,
             icon = {
-
-                    Image(
-                        painter = painterResource(id = R.drawable.history),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-
+                Image(
+                    painter = painterResource(id = R.drawable.history),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
             },
-            onClick = { scope.launch { drawerState.close() }
-                navController.navigate("history_screen")
-            }
+            onClick = { navigateTo("history_screen") }
         )
 
         NavigationDrawerItem(
-            label = { Text("Our Routes",color = primaryGreen) },
+            label = { Text("Our Routes", color = primaryGreen) },
             selected = false,
             icon = {
                 Icon(
@@ -84,12 +94,11 @@ fun AppDrawer(
                     tint = primaryGreen
                 )
             },
-            onClick = { scope.launch { drawerState.close() }
-                navController.navigate("routes_screen")}
+            onClick = { navigateTo("routes_screen") }
         )
 
         NavigationDrawerItem(
-            label = { Text("Contact us",color = primaryGreen) },
+            label = { Text("Contact us", color = primaryGreen) },
             selected = false,
             icon = {
                 Icon(
@@ -98,12 +107,11 @@ fun AppDrawer(
                     tint = primaryGreen
                 )
             },
-            onClick = { scope.launch { drawerState.close() }
-            navController.navigate("contactus")}
+            onClick = { navigateTo("contactus") }
         )
 
         NavigationDrawerItem(
-            label = { Text("Common question",color = primaryGreen) },
+            label = { Text("Common question", color = primaryGreen) },
             selected = false,
             icon = {
                 Icon(
@@ -112,9 +120,7 @@ fun AppDrawer(
                     tint = primaryGreen
                 )
             },
-            onClick = { scope.launch { drawerState.close() }
-                navController.navigate("commonquestionscreen")
-            }
+            onClick = { navigateTo("commonquestionscreen") }
         )
     }
 }

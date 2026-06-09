@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -20,15 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.secondgrad.R
 
 @Composable
-fun TimeAndCost( ) {
+fun TimeAndCost(
+    totalCost: Int = 0,
+    totalTimeInMinutes: Int = 0
+) {
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -56,7 +59,7 @@ fun TimeAndCost( ) {
                 Spacer(modifier = Modifier.width(4.dp))
 
                 Text(
-                    text =  "50",
+                    text = totalCost.toString(),
                     color = Color.Black,
                     fontWeight = FontWeight.Bold,
                 )
@@ -73,9 +76,9 @@ fun TimeAndCost( ) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.img),
+                imageVector = Icons.Default.ConfirmationNumber,
                 contentDescription = "time",
-                tint = Color.Unspecified,
+                tint = Color(0xFFFF7A00),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -110,7 +113,7 @@ fun TimeAndCost( ) {
                 Spacer(modifier = Modifier.width(4.dp))
 
                 Text(
-                    text = "50",
+                    text = totalTimeInMinutes.toString(),
                     color = Color.Black,
                     fontWeight = FontWeight.Bold,
                 )
@@ -127,9 +130,9 @@ fun TimeAndCost( ) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.clock),
+                imageVector = Icons.Default.AccessTime,
                 contentDescription = "time",
-                tint = Color.Unspecified
+                tint = Color(0xFFFF7A00)
             )
         }
     }

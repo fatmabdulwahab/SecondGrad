@@ -3,7 +3,7 @@ package com.example.secondgrad
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-object RetrofitInstanceSearch {
+object TransGuideRetrofit {
     private const val BASE_URL = "https://transguideapi.runasp.net/"
 
     private val retrofit: Retrofit = Retrofit.Builder()
@@ -12,8 +12,8 @@ object RetrofitInstanceSearch {
         .build()
 
     @Suppress("UNCHECKED_CAST")
-    private val apiClass: Class<SearchApi> =
-        Class.forName("com.example.secondgrad.SearchApi") as Class<SearchApi>
+    private val apiClass: Class<TransGuideApi> =
+        Class.forName("com.example.secondgrad.TransGuideApi") as Class<TransGuideApi>
 
-    val api: SearchApi = retrofit.create(apiClass)
+    val api: TransGuideApi = retrofit.create(apiClass)
 }

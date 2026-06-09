@@ -2,33 +2,30 @@ package com.example.secondgrad.screens.scoffold
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondgrad.RecognizeRequest
-import com.example.secondgrad.RetrofitInstance
-import com.example.secondgrad.SignViewModel
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class HandLandmarkerHelper(
     private val context: Context,
-
     private val onLandmarksDetected: (List<Float>) -> Unit
 ) {
 
     private var handLandmarker: HandLandmarker? = null
-    var sessionId: String? = null // 👈 جعلناه public عشان الـ UI يقدر يقرأه عند إنهاء الجلسة
     private var lastSentTime = 0L
 
-    fun setupHandLandmarker() {
-        try {
+    fun setupHandLandmarker(): Boolean {
+        return try {
+            val modelBuffer = HandModelProvider.openModelBuffer(context)
+            if (modelBuffer == null) {
+                handLandmarker = null
+                return false
+            }
+
             val baseOptions = BaseOptions.builder()
-                .setModelAssetPath("hand_landmarker.task")
+                .setModelAssetBuffer(modelBuffer)
                 .build()
 
             val options = HandLandmarker.HandLandmarkerOptions.builder()
@@ -42,24 +39,34 @@ class HandLandmarkerHelper(
 
             Log.d("HAND", "landmarker created = ${handLandmarker != null}")
 
-        } catch (e: Exception) {
-            Log.e("HAND_FATAL", e.message.toString())
+            handLandmarker != null
+        } catch (throwable: Throwable) {
+            Log.e("HAND_FATAL", throwable.message.toString())
+            handLandmarker = null
+            false
         }
     }
+
     fun getHandLandmarker(): HandLandmarker? = handLandmarker
 
-
+    fun close() {
+        try {
+            handLandmarker?.close()
+        } catch (throwable: Throwable) {
+            Log.e("HAND_CLOSE_ERROR", throwable.message.toString())
+        }
+        handLandmarker = null
+    }
 
     private fun onResult(result: HandLandmarkerResult, inputImage: MPImage) {
+        if (result.landmarks().size == 0) return
 
-        if (result.landmarks().isEmpty()) return
         val now = System.currentTimeMillis()
-        if (now - lastSentTime < 1000) return // إرسال فريم كل ثانية
+        if (now - lastSentTime < 1000) return
         lastSentTime = now
 
-
         val firstHand = result.landmarks()[0]
-        val landmarks = mutableListOf<Float>()
+        val landmarks = java.util.ArrayList<Float>()
 
         for (point in firstHand) {
             landmarks.add(point.x())

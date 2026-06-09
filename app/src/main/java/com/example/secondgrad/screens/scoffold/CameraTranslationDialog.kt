@@ -1,8 +1,11 @@
 package com.example.secondgrad.screens.scoffold
 
-import android.R.attr.text
-import android.util.Log
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -23,16 +26,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondgrad.RetrofitInstance
 import com.example.secondgrad.SignViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 @Composable
@@ -45,17 +48,75 @@ fun CameraTranslationDialog(
 
     val prediction by viewModel.prediction.collectAsState()
     val currentWord by viewModel.currentWord.collectAsState()
-    val sessionId by viewModel.sessionId.collectAsState()
+    val cameraError by viewModel.errorMessage.collectAsState()
     var cameraUiState by remember { mutableStateOf(CameraUiState.Initial) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
+    fun hasHandModelAsset(): Boolean {
+        return HandModelProvider.isModelAvailable(context)
+    }
 
-    LaunchedEffect(sessionId) {
-        if (sessionId.isNotBlank()) {
+    fun hasCameraPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun startCameraSession() {
+        scope.launch {
+            if (!hasHandModelAsset()) {
+                Toast.makeText(
+                    context,
+                    "ملف تشغيل الكاميرا غير موجود. أعيدي تثبيت التطبيق أو Sync للمشروع",
+                    Toast.LENGTH_LONG
+                ).show()
+                cameraUiState = CameraUiState.Initial
+                return@launch
+            }
+
+            cameraUiState = CameraUiState.CreatingSession
+
+            val isSessionCreated = viewModel.createSessionForCamera()
+            if (!isSessionCreated) {
+                cameraUiState = CameraUiState.Initial
+                return@launch
+            }
+
+            cameraUiState = CameraUiState.ConnectingServer
+            delay(400)
+
+            cameraUiState = CameraUiState.StartingCamera
+            delay(400)
+
             cameraUiState = CameraUiState.Ready
         }
     }
 
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startCameraSession()
+        } else {
+            Toast.makeText(
+                context,
+                "اسمحي بصلاحية الكاميرا عشان تبدئي الترجمة",
+                Toast.LENGTH_SHORT
+            ).show()
+            cameraUiState = CameraUiState.Initial
+        }
+    }
+
+    LaunchedEffect(cameraError) {
+        val message = cameraError
+        if (message != null) {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+            cameraUiState = CameraUiState.Initial
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -127,7 +188,10 @@ fun CameraTranslationDialog(
                             CameraUiState.Ready -> {
                                 CameraPreview(
                                     activity = activity,
-                                    signViewModel = viewModel
+                                    signViewModel = viewModel,
+                                    onError = { message ->
+                                        viewModel.setCameraError(message)
+                                    }
                                 )
                             }
                             else -> LoadingStateView("جاري تشغيل الكاميرا...")
@@ -153,7 +217,7 @@ fun CameraTranslationDialog(
                                 ) {
                                     // عرض الحرف الحالي الراجع من الـ API
                                     Text(
-                                        text = prediction.isEmpty()  { "..." },
+                                        text = if (prediction.length == 0) "..." else prediction,
                                         color = Color(0xFF10B981),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
@@ -178,10 +242,10 @@ fun CameraTranslationDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = currentWord.ifEmpty { "ابدأ بتشكيل الكلمة إشارة تلو الأخرى..." },
-                                        color = if (currentWord.isEmpty()) Color.LightGray else Color(0xFF0F172A),
+                                        text = if (currentWord.length == 0) "ابدأ بتشكيل الكلمة إشارة تلو الأخرى..." else currentWord,
+                                        color = if (currentWord.length == 0) Color.LightGray else Color(0xFF0F172A),
                                         fontSize = 15.sp,
-                                        fontWeight = if (currentWord.isEmpty()) FontWeight.Normal else FontWeight.Bold,
+                                        fontWeight = if (currentWord.length == 0) FontWeight.Normal else FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -195,8 +259,7 @@ fun CameraTranslationDialog(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     OutlinedButton(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.resetWord() },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
@@ -209,8 +272,7 @@ fun CameraTranslationDialog(
                                     }
 
                                     Button(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.deleteLastCharacter() },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF5F5), contentColor = Color(0xFFEF4444))
@@ -223,8 +285,7 @@ fun CameraTranslationDialog(
                                     }
 
                                     OutlinedButton(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.addSpace() },
                                         modifier = Modifier.weight(1.2f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
@@ -246,7 +307,16 @@ fun CameraTranslationDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Button(
-                                        onClick = { cameraUiState = CameraUiState.Initial },
+                                        onClick = {
+                                            viewModel.cancelSession(
+                                                onComplete = {
+                                                    cameraUiState = CameraUiState.Initial
+                                                },
+                                                onError = {
+                                                    cameraUiState = CameraUiState.Initial
+                                                }
+                                            )
+                                        },
                                         modifier = Modifier.height(50.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF5F5)),
                                         shape = RoundedCornerShape(14.dp)
@@ -254,26 +324,20 @@ fun CameraTranslationDialog(
                                         Text("إلغاء", color = Color(0xFFEF4444), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                     }
 
-                                    // 👇 زر حفظ الكلمة متصل بـ endSession الـ API
                                     Button(
                                         onClick = {
-                                            if (sessionId.isNotBlank()) {
-                                                scope.launch(Dispatchers.IO) {
-                                                    try {
-
-                                                        RetrofitInstance.api.endSession(sessionId)
-
-                                                        scope.launch(Dispatchers.Main) {
-                                                            onSaveSuccess(currentWord)
-                                                        }
-
-                                                    } catch (e: Exception) {
-                                                        Log.e("END_SESSION_ERROR", e.message.toString())
-                                                    }
+                                            viewModel.saveSession(
+                                                onSuccess = { finalWord ->
+                                                    onSaveSuccess(finalWord)
+                                                },
+                                                onError = {
+                                                    Toast.makeText(
+                                                        context,
+                                                        "مش قادرين نحفظ الجلسة",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                 }
-                                            } else {
-                                                onSaveSuccess(currentWord)
-                                            }
+                                            )
                                         },
                                         modifier = Modifier.weight(1f).height(50.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF73C2B3)),
@@ -307,20 +371,10 @@ fun CameraTranslationDialog(
 
                                     Button(
                                         onClick = {
-                                            scope.launch {
-
-                                                cameraUiState = CameraUiState.CreatingSession
-
-                                                viewModel.createSession()
-                                                delay(1000)
-
-                                                cameraUiState = CameraUiState.ConnectingServer
-                                                delay(1000)
-
-                                                cameraUiState = CameraUiState.StartingCamera
-                                                delay(1000)
-
-                                                cameraUiState = CameraUiState.Ready
+                                            if (hasCameraPermission()) {
+                                                startCameraSession()
+                                            } else {
+                                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                                             }
                                         },
                                         modifier = Modifier

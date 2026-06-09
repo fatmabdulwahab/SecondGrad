@@ -10,14 +10,16 @@ object RetrofitInstance {
         "https://amr-yasserr-arsl-fingerspelling-detector.hf.space/"
 
 
-    val api: SignApi by lazy {
+    private val retrofit: Retrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .addConverterFactory(
+            GsonConverterFactory.create()
+        )
+        .build()
 
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .addConverterFactory(
-                GsonConverterFactory.create()
-            )
-            .build()
-            .create(SignApi::class.java)
-    }
+    @Suppress("UNCHECKED_CAST")
+    private val apiClass: Class<SignApi> =
+        Class.forName("com.example.secondgrad.SignApi") as Class<SignApi>
+
+    val api: SignApi = retrofit.create(apiClass)
 }
