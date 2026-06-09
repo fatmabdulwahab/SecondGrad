@@ -50,11 +50,19 @@ fun indexOfChar(value: String, target: Char): Int {
 }
 
 fun indexOfText(value: String, search: String): Int {
-    if (search.length == 0 || value.length < search.length) {
+    return indexOfTextFrom(value, search, 0)
+}
+
+fun indexOfTextFrom(value: String, search: String, fromIndex: Int): Int {
+    if (search.length == 0 || value.length < search.length || fromIndex < 0) {
         return -1
     }
 
-    var start = 0
+    var start = fromIndex
+    if (start > value.length - search.length) {
+        return -1
+    }
+
     while (start <= value.length - search.length) {
         var offset = 0
         var matched = true

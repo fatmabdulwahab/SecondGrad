@@ -29,25 +29,34 @@ class SignViewModel : ViewModel() {
         }
     }
 
-    suspend fun createSessionForCamera(): Boolean {
+    fun fetchCameraSessionIdBlocking(): String {
         return try {
-            val response = repository.createSession()
-            val session = response.resolvedSessionId()
-            if (session.length == 0) {
-                _errorMessage.value = "مش قادرين نبدأ جلسة الكاميرا"
-                return false
-            }
-
-            _sessionId.value = session
-            _prediction.value = ""
-            _currentWord.value = ""
-            _errorMessage.value = null
-            true
+            repository.createSession().resolvedSessionId()
         } catch (e: Exception) {
             Log.e("SIGN_SESSION_ERROR", e.message.toString())
-            _errorMessage.value = "مش قادرين نبدأ جلسة الكاميرا"
-            false
+            ""
         }
+    }
+
+    fun applyCameraSession(sessionId: String): Boolean {
+        if (sessionId.length == 0) {
+            _errorMessage.value = "مش قادرين نبدأ جلسة الكاميرا"
+            return false
+        }
+
+        _sessionId.value = sessionId
+        _prediction.value = ""
+        _currentWord.value = ""
+        _errorMessage.value = null
+        return true
+    }
+
+    fun createSessionForCameraBlocking(): Boolean {
+        return applyCameraSession(fetchCameraSessionIdBlocking())
+    }
+
+    suspend fun createSessionForCamera(): Boolean {
+        return createSessionForCameraBlocking()
     }
 
     fun resetWord() {
@@ -72,7 +81,7 @@ class SignViewModel : ViewModel() {
     fun deleteLastCharacter() {
         val word = _currentWord.value
         if (word.length > 0) {
-            _currentWord.value = word.substring(0, word.length - 1)
+            _currentWord.value = substringText(word, 0, word.length - 1)
         }
     }
 

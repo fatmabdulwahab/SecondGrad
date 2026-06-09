@@ -17,7 +17,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -30,10 +29,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.secondgrad.BackgroundRunner
+import com.example.secondgrad.MainThreadExecutor
 import com.example.secondgrad.SignViewModel
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun CameraPreview(
@@ -59,28 +59,36 @@ fun CameraPreview(
         )
     }
 
-    LaunchedEffect(modelPrepared) {
-        val ready = BackgroundRunner.run {
-            if (!modelPrepared) {
-                HandModelProvider.prepareModelFile(activity)
+    DisposableEffect(modelPrepared) {
+        val cancelled = AtomicBoolean(false)
+
+        MainThreadExecutor.runInBackground(
+            backgroundWork = {
+                if (!modelPrepared) {
+                    HandModelProvider.prepareModelFile(activity)
+                }
+                handLandmarkerHelper.setupHandLandmarker()
+            },
+            onResult = { ready ->
+                if (!cancelled.get()) {
+                    isHandReady = ready
+                    onHandModelStatus(ready)
+                }
             }
-            handLandmarkerHelper.setupHandLandmarker()
+        )
+
+        onDispose {
+            cancelled.set(true)
+            handLandmarkerHelper.close()
+            cameraExecutor.shutdown()
         }
-        isHandReady = ready
-        onHandModelStatus(ready)
     }
 
-    LaunchedEffect(cameraBindError) {
+    if (cameraBindError != null) {
         val message = cameraBindError
         if (message != null) {
             onError(message)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            handLandmarkerHelper.close()
-            cameraExecutor.shutdown()
+            cameraBindError = null
         }
     }
 
@@ -93,8 +101,6 @@ fun CameraPreview(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 val previewView = PreviewView(ctx)
-                previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                previewView.scaleType = PreviewView.ScaleType.FILL_CENTER
 
                 val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                 cameraProviderFuture.addListener({

@@ -35,11 +35,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondgrad.BackgroundRunner
+import com.example.secondgrad.MainThreadExecutor
 import com.example.secondgrad.SignViewModel
 import com.example.secondgrad.containsText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 @Composable
 fun CameraTranslationDialog(
     activity: ComponentActivity,
@@ -63,30 +64,41 @@ fun CameraTranslationDialog(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-    fun startCameraSession() {
-        scope.launch {
-            handTrackingReady = false
+    fun continueAfterSession(isSessionCreated: Boolean) {
+        if (!isSessionCreated) {
+            cameraUiState = CameraUiState.Initial
+            return
+        }
 
-            cameraUiState = CameraUiState.CreatingSession
-            delay(700)
-
-            val isSessionCreated = viewModel.createSessionForCamera()
-            if (!isSessionCreated) {
-                cameraUiState = CameraUiState.Initial
-                return@launch
-            }
-
-            cameraUiState = CameraUiState.ConnectingServer
-            val modelFile = BackgroundRunner.run {
+        cameraUiState = CameraUiState.ConnectingServer
+        MainThreadExecutor.runInBackground<File?>(
+            backgroundWork = {
                 HandModelProvider.prepareModelFile(context)
+            },
+            onResult = { modelFile ->
+                handTrackingReady = modelFile != null
+                cameraUiState = CameraUiState.StartingCamera
+                MainThreadExecutor.postDelayed(700L) {
+                    cameraUiState = CameraUiState.Ready
+                }
             }
-            handTrackingReady = modelFile != null
-            delay(700)
+        )
+    }
 
-            cameraUiState = CameraUiState.StartingCamera
-            delay(700)
+    fun startCameraSession() {
+        handTrackingReady = false
+        cameraUiState = CameraUiState.CreatingSession
 
-            cameraUiState = CameraUiState.Ready
+        MainThreadExecutor.postDelayed(700L) {
+            MainThreadExecutor.runInBackground(
+                backgroundWork = {
+                    viewModel.fetchCameraSessionIdBlocking()
+                },
+                onResult = { sessionId ->
+                    val isSessionCreated = viewModel.applyCameraSession(sessionId)
+                    continueAfterSession(isSessionCreated)
+                }
+            )
         }
     }
 

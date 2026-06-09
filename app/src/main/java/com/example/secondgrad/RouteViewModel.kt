@@ -406,7 +406,7 @@ class RouteViewModel : ViewModel() {
         var fromMarkerIndex = 0
         while (fromMarkerIndex < fromMarkers.size) {
             val marker = fromMarkers[fromMarkerIndex]
-            val index = text.indexOf(marker)
+            val index = indexOfText(text, marker)
             if (index >= 0 && (fromIndex < 0 || index < fromIndex)) {
                 fromIndex = index
                 fromMarkerLength = marker.length
@@ -422,7 +422,7 @@ class RouteViewModel : ViewModel() {
 
             while (markerIndex < toMarkers.size) {
                 val marker = toMarkers[markerIndex]
-                val index = text.indexOf(marker, fromStart)
+                val index = indexOfTextFrom(text, marker, fromStart)
                 if (index >= 0 && (toIndex < 0 || index < toIndex)) {
                     toIndex = index
                     toMarkerLength = marker.length
@@ -444,7 +444,7 @@ class RouteViewModel : ViewModel() {
         var markerIndex = 0
         while (markerIndex < toMarkers.size) {
             val marker = toMarkers[markerIndex]
-            val index = text.indexOf(marker)
+            val index = indexOfText(text, marker)
             if (index > 0 && (splitIndex < 0 || index < splitIndex)) {
                 splitIndex = index
                 splitLength = marker.length
@@ -524,9 +524,9 @@ class RouteViewModel : ViewModel() {
 
     private fun containsAudioLoadError(value: String): Boolean {
         val normalized = normalizeVoiceText(value)
-        return normalized.indexOf("audio load error") >= 0 ||
-            normalized.indexOf("format not recognised") >= 0 ||
-            normalized.indexOf("format not recognized") >= 0
+        return indexOfText(normalized, "audio load error") >= 0 ||
+            indexOfText(normalized, "format not recognised") >= 0 ||
+            indexOfText(normalized, "format not recognized") >= 0
     }
 
     private fun isIgnorableVoiceChar(char: Char): Boolean {

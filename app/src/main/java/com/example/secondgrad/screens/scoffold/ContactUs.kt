@@ -31,9 +31,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,9 +46,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.secondgrad.FeedbackRequest
+import com.example.secondgrad.MainThreadExecutor
+import com.example.secondgrad.indexOfChar
+import com.example.secondgrad.indexOfText
+import com.example.secondgrad.substringText
+import com.example.secondgrad.trimInputText
 import com.google.gson.Gson
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -73,37 +74,10 @@ fun ContactUs() {
     var selectedRating by remember { mutableStateOf("") }
     var selectedReason by remember { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
-    var submitTrigger by remember { mutableIntStateOf(0) }
-    var pendingRequest by remember { mutableStateOf<FeedbackRequest?>(null) }
 
     val arabicTextStyle = TextStyle(textAlign = TextAlign.End)
     val ratingOptions = remember { buildRatingOptions() }
     val reasonOptions = remember { buildReasonOptions() }
-
-    LaunchedEffect(submitTrigger) {
-        val request = pendingRequest
-        if (submitTrigger == 0 || request == null) {
-            return@LaunchedEffect
-        }
-
-        isSending = true
-        val resultMessage = submitFeedbackToApi(request)
-        isSending = false
-        pendingRequest = null
-
-        Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
-
-        if (resultMessage.startsWith("تم إرسال")) {
-            name = ""
-            email = ""
-            phone = ""
-            comments = ""
-            tripDateTime = ""
-            driverComment = ""
-            selectedRating = ""
-            selectedReason = ""
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -296,20 +270,47 @@ fun ContactUs() {
                             return@Button
                         }
 
-                        pendingRequest = FeedbackRequest(
-                            fullName = name.trim(),
-                            email = email.trim(),
-                            phoneNumber = phone.trim(),
+                        val request = FeedbackRequest(
+                            fullName = trimInputText(name),
+                            email = trimInputText(email),
+                            phoneNumber = trimInputText(phone),
                             reason = selectedReason,
-                            timeSlot = if (tripDateTime.trim().length > 0) tripDateTime.trim() else "غير محدد",
-                            message = comments.trim(),
-                            comment = driverComment.trim(),
+                            timeSlot = if (trimInputText(tripDateTime).length > 0) {
+                                trimInputText(tripDateTime)
+                            } else {
+                                "غير محدد"
+                            },
+                            message = trimInputText(comments),
+                            comment = trimInputText(driverComment),
                             ratingId = ratingIdFromSelection(selectedRating),
                             userProfileId = 1,
                             routeId = 1,
                             tripStatusId = 1
                         )
-                        submitTrigger = submitTrigger + 1
+                        isSending = true
+                        MainThreadExecutor.runInBackground(
+                            backgroundWork = {
+                                submitFeedbackToApiBlocking(request)
+                            },
+                            onResult = { resultMessage ->
+                                isSending = false
+                                Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
+
+                                if (
+                                    resultMessage.length >= 7 &&
+                                    substringText(resultMessage, 0, 7) == "تم إرسال"
+                                ) {
+                                    name = ""
+                                    email = ""
+                                    phone = ""
+                                    comments = ""
+                                    tripDateTime = ""
+                                    driverComment = ""
+                                    selectedRating = ""
+                                    selectedReason = ""
+                                }
+                            }
+                        )
                     },
                     enabled = !isSending,
                     modifier = Modifier.fillMaxWidth(),
@@ -462,7 +463,7 @@ private fun validateFeedbackForm(
     if (!hasInputText(name)) {
         return "اكتبي الاسم بالكامل"
     }
-    if (!hasInputText(email) || email.indexOf("@") < 0) {
+    if (!hasInputText(email) || indexOfChar(email, '@') < 0) {
         return "اكتبي بريد إلكتروني صحيح"
     }
     if (!hasInputText(selectedRating)) {
@@ -490,48 +491,46 @@ private fun hasInputText(value: String): Boolean {
 }
 
 private fun ratingIdFromSelection(selectedRating: String): Int {
-    if (selectedRating.indexOf("ممتازة") >= 0) {
+    if (indexOfText(selectedRating, "ممتازة") >= 0) {
         return 5
     }
-    if (selectedRating.indexOf("جيدة") >= 0) {
+    if (indexOfText(selectedRating, "جيدة") >= 0) {
         return 4
     }
-    if (selectedRating.indexOf("متوسطة") >= 0) {
+    if (indexOfText(selectedRating, "متوسطة") >= 0) {
         return 3
     }
-    if (selectedRating.indexOf("سيئة") >= 0) {
+    if (indexOfText(selectedRating, "سيئة") >= 0) {
         return 2
     }
     return 1
 }
 
-private suspend fun submitFeedbackToApi(request: FeedbackRequest): String {
-    return withContext(Dispatchers.IO) {
-        try {
-            val gson = Gson()
-            val jsonBody = gson.toJson(request)
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val body = jsonBody.toRequestBody(mediaType)
-            val httpRequest = Request.Builder()
-                .url(FEEDBACK_API_URL)
-                .post(body)
-                .build()
+private fun submitFeedbackToApiBlocking(request: FeedbackRequest): String {
+    return try {
+        val gson = Gson()
+        val jsonBody = gson.toJson(request)
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = jsonBody.toRequestBody(mediaType)
+        val httpRequest = Request.Builder()
+            .url(FEEDBACK_API_URL)
+            .post(body)
+            .build()
 
-            val client = OkHttpClient()
-            val response = client.newCall(httpRequest).execute()
-            val responseBody = response.body?.string() ?: ""
+        val client = OkHttpClient()
+        val response = client.newCall(httpRequest).execute()
+        val responseBody = response.body?.string() ?: ""
 
-            if (response.isSuccessful) {
-                "تم إرسال التقييم بنجاح"
+        if (response.isSuccessful) {
+            "تم إرسال التقييم بنجاح"
+        } else {
+            if (responseBody.length > 0) {
+                "مش قادرين نرسل التقييم (${response.code}): $responseBody"
             } else {
-                if (responseBody.length > 0) {
-                    "مش قادرين نرسل التقييم (${response.code}): $responseBody"
-                } else {
-                    "مش قادرين نرسل التقييم، جرّبي تاني (${response.code})"
-                }
+                "مش قادرين نرسل التقييم، جرّبي تاني (${response.code})"
             }
-        } catch (throwable: Throwable) {
-            throwable.localizedMessage ?: "حصل خطأ في الاتصال"
         }
+    } catch (throwable: Throwable) {
+        throwable.localizedMessage ?: "حصل خطأ في الاتصال"
     }
 }

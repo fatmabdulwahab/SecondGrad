@@ -1,7 +1,5 @@
 package com.example.secondgrad
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -13,16 +11,14 @@ class SignRepository {
 
     private val httpClient = OkHttpClient()
 
-    suspend fun createSession(): CreateSessionResponse {
-        return withContext(Dispatchers.IO) {
-            val apiSession = requestTransGuideSession()
-            if (apiSession.resolvedSessionId().length > 0) {
-                return@withContext apiSession
-            }
-
-            val localSessionId = UUID.randomUUID().toString()
-            CreateSessionResponse(session_id = localSessionId)
+    fun createSession(): CreateSessionResponse {
+        val apiSession = requestTransGuideSession()
+        if (apiSession.resolvedSessionId().length > 0) {
+            return apiSession
         }
+
+        val localSessionId = UUID.randomUUID().toString()
+        return CreateSessionResponse(session_id = localSessionId)
     }
 
     suspend fun recognize(
@@ -31,37 +27,28 @@ class SignRepository {
         return RetrofitInstance.api.recognize(request)
     }
 
-    suspend fun endSession(
+    fun endSession(
         sessionId: String
     ) {
         if (sessionId.length == 0) {
             return
         }
 
-        withContext(Dispatchers.IO) {
-            var endedOnTransGuide = false
+        var endedOnTransGuide = false
 
-            try {
-                val request = Request.Builder()
-                    .url("$TRANSGUIDE_BASE_URL/api/Sign/end/$sessionId")
-                    .post(ByteArray(0).toRequestBody(null))
-                    .build()
+        try {
+            val request = Request.Builder()
+                .url("$TRANSGUIDE_BASE_URL/api/Sign/end/$sessionId")
+                .post(ByteArray(0).toRequestBody(null))
+                .build()
 
-                val response = httpClient.newCall(request).execute()
-                endedOnTransGuide = response.isSuccessful
-                response.close()
-            } catch (throwable: Throwable) {
-                endedOnTransGuide = false
-            }
-
-            if (!endedOnTransGuide) {
-                try {
-                    RetrofitInstance.api.endSession(sessionId)
-                } catch (throwable: Throwable) {
-                    // Ignore cleanup errors from the fallback recognizer API.
-                }
-            }
+            val response = httpClient.newCall(request).execute()
+            endedOnTransGuide = response.isSuccessful
+            response.close()
+        } catch (throwable: Throwable) {
+            endedOnTransGuide = false
         }
+
     }
 
     private fun requestTransGuideSession(): CreateSessionResponse {
