@@ -66,7 +66,7 @@ class HandLandmarkerHelper(
         lastSentTime = now
 
         val firstHand = result.landmarks()[0]
-        val landmarks = mutableListOf<Float>()
+        val landmarks = java.util.ArrayList<Float>()
 
         for (point in firstHand) {
             landmarks.add(point.x())
