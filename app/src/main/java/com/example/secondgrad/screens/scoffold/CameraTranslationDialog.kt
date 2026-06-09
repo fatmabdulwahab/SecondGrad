@@ -246,8 +246,13 @@ fun CameraTranslationDialog(
                                 horizontalAlignment = Alignment.End
                             ) {
                                 if (!handTrackingReady) {
+                                    val handStatusMessage = if (MediaPipeNativeSupport.isAvailable()) {
+                                        "الكاميرا شغالة — التعرف على الإشارة لسه بيتفعّل. لو استمرت المشكلة تأكدي من الإنترنت وجربي تاني"
+                                    } else {
+                                        MediaPipeNativeSupport.unavailableMessage()
+                                    }
                                     Text(
-                                        text = "الكاميرا شغالة — التعرف على الإشارة لسه بيتفعّل. لو استمرت المشكلة تأكدي من الإنترنت وجربي تاني",
+                                        text = handStatusMessage,
                                         color = Color(0xFFB45309),
                                         fontSize = 12.sp,
                                         textAlign = TextAlign.Center,

@@ -20,6 +20,12 @@ class HandLandmarkerHelper(
     fun setupHandLandmarker(): Boolean {
         close()
 
+        if (!MediaPipeNativeSupport.isAvailable()) {
+            Log.e("HAND_NATIVE_MISSING", MediaPipeNativeSupport.unavailableMessage())
+            handLandmarker = null
+            return false
+        }
+
         if (tryCreateFromBundledAsset()) {
             return true
         }
@@ -73,7 +79,7 @@ class HandLandmarkerHelper(
 
             handLandmarker != null
         } catch (throwable: Throwable) {
-            Log.e("HAND_ASSET_LOAD", throwable.message.toString())
+            logHandLoadError("HAND_ASSET_LOAD", throwable)
             handLandmarker = null
             false
         }
@@ -95,10 +101,38 @@ class HandLandmarkerHelper(
 
             handLandmarker != null
         } catch (throwable: Throwable) {
-            Log.e("HAND_FILE_LOAD", throwable.message.toString())
+            logHandLoadError("HAND_FILE_LOAD", throwable)
             handLandmarker = null
             false
         }
+    }
+
+    private fun logHandLoadError(tag: String, throwable: Throwable) {
+        if (isNativeLibraryError(throwable)) {
+            Log.e("HAND_NATIVE_MISSING", MediaPipeNativeSupport.unavailableMessage())
+        } else {
+            Log.e(tag, throwable.message.toString())
+        }
+    }
+
+    private fun isNativeLibraryError(throwable: Throwable): Boolean {
+        if (throwable is UnsatisfiedLinkError) {
+            return true
+        }
+
+        val message = throwable.message ?: ""
+        if (containsNativeLibraryHint(message)) {
+            return true
+        }
+
+        val cause = throwable.cause
+        return cause != null && isNativeLibraryError(cause)
+    }
+
+    private fun containsNativeLibraryHint(message: String): Boolean {
+        return com.example.secondgrad.containsText(message, "libmediapipe_tasks") ||
+            com.example.secondgrad.containsText(message, "UnsatisfiedLinkError") ||
+            com.example.secondgrad.containsText(message, "dlopen failed")
     }
 
     private fun buildLandmarkerOptions(baseOptions: BaseOptions): HandLandmarker.HandLandmarkerOptions {
