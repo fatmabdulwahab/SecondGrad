@@ -144,7 +144,6 @@ fun CommonQuestionScreen() {
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .weight(1f)
                                         .background(color = primaryGreen, shape = RoundedCornerShape(8.dp))
                                         .padding(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
@@ -153,8 +152,7 @@ fun CommonQuestionScreen() {
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 14.sp,
-                                        textAlign = TextAlign.Right,
-                                        modifier = Modifier.fillMaxWidth()
+                                        textAlign = TextAlign.Right
                                     )
                                 }
 
