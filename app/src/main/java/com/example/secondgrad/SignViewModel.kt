@@ -24,7 +24,6 @@ class SignViewModel : ViewModel() {
     val errorMessage = _errorMessage.asStateFlow()
 
     fun createSession() {
-
         viewModelScope.launch {
             createSessionForCamera()
         }
@@ -34,6 +33,8 @@ class SignViewModel : ViewModel() {
         return try {
             val response = repository.createSession()
             _sessionId.value = response.session_id
+            _prediction.value = ""
+            _currentWord.value = ""
             _errorMessage.value = null
             true
         } catch (e: Exception) {
@@ -41,6 +42,51 @@ class SignViewModel : ViewModel() {
             _errorMessage.value = "مش قادرين نبدأ جلسة الكاميرا"
             false
         }
+    }
+
+    fun resetWord() {
+        viewModelScope.launch {
+            val oldSession = _sessionId.value
+            _prediction.value = ""
+            _currentWord.value = ""
+
+            if (oldSession.length > 0) {
+                try {
+                    repository.endSession(oldSession)
+                } catch (e: Exception) {
+                    Log.e("SIGN_RESET_ERROR", e.message.toString())
+                }
+            }
+
+            val response = repository.createSession()
+            _sessionId.value = response.session_id
+        }
+    }
+
+    fun deleteLastCharacter() {
+        val word = _currentWord.value
+        if (word.length > 0) {
+            _currentWord.value = word.substring(0, word.length - 1)
+        }
+    }
+
+    fun addSpace() {
+        _currentWord.value = _currentWord.value + " "
+    }
+
+    suspend fun finishSession(): String {
+        val finalWord = _currentWord.value
+        val currentSession = _sessionId.value
+
+        if (currentSession.length > 0) {
+            repository.endSession(currentSession)
+        }
+
+        _sessionId.value = ""
+        _prediction.value = ""
+        _currentWord.value = ""
+
+        return finalWord
     }
 
     fun setCameraError(message: String) {
@@ -76,8 +122,10 @@ class SignViewModel : ViewModel() {
                 _prediction.value =
                     response.prediction
 
-                _currentWord.value =
-                    response.current_word ?: ""
+                val serverWord = response.current_word
+                if (serverWord != null && serverWord.length > 0) {
+                    _currentWord.value = serverWord
+                }
 
             } catch (e: Exception) {
                 Log.e("SIGN_RECOGNIZE_ERROR", e.message.toString())

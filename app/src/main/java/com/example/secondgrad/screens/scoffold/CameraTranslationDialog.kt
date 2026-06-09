@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.secondgrad.RetrofitInstance
 import com.example.secondgrad.SignViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -218,8 +217,7 @@ fun CameraTranslationDialog(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     OutlinedButton(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.resetWord() },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
@@ -232,8 +230,7 @@ fun CameraTranslationDialog(
                                     }
 
                                     Button(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.deleteLastCharacter() },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF5F5), contentColor = Color(0xFFEF4444))
@@ -246,8 +243,7 @@ fun CameraTranslationDialog(
                                     }
 
                                     OutlinedButton(
-                                        // لسه
-                                        onClick = {  },
+                                        onClick = { viewModel.addSpace() },
                                         modifier = Modifier.weight(1.2f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray)
@@ -269,7 +265,21 @@ fun CameraTranslationDialog(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Button(
-                                        onClick = { cameraUiState = CameraUiState.Initial },
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    viewModel.finishSession()
+                                                    scope.launch(Dispatchers.Main) {
+                                                        cameraUiState = CameraUiState.Initial
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e("CANCEL_SESSION_ERROR", e.message.toString())
+                                                    scope.launch(Dispatchers.Main) {
+                                                        cameraUiState = CameraUiState.Initial
+                                                    }
+                                                }
+                                            }
+                                        },
                                         modifier = Modifier.height(50.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF5F5)),
                                         shape = RoundedCornerShape(14.dp)
@@ -277,25 +287,24 @@ fun CameraTranslationDialog(
                                         Text("إلغاء", color = Color(0xFFEF4444), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                     }
 
-                                    // 👇 زر حفظ الكلمة متصل بـ endSession الـ API
                                     Button(
                                         onClick = {
-                                            if (sessionId.length > 0) {
-                                                scope.launch(Dispatchers.IO) {
-                                                    try {
-
-                                                        RetrofitInstance.api.endSession(sessionId)
-
-                                                        scope.launch(Dispatchers.Main) {
-                                                            onSaveSuccess(currentWord)
-                                                        }
-
-                                                    } catch (e: Exception) {
-                                                        Log.e("END_SESSION_ERROR", e.message.toString())
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val finalWord = viewModel.finishSession()
+                                                    scope.launch(Dispatchers.Main) {
+                                                        onSaveSuccess(finalWord)
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e("END_SESSION_ERROR", e.message.toString())
+                                                    scope.launch(Dispatchers.Main) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            "مش قادرين نحفظ الجلسة",
+                                                            Toast.LENGTH_SHORT
+                                                        ).show()
                                                     }
                                                 }
-                                            } else {
-                                                onSaveSuccess(currentWord)
                                             }
                                         },
                                         modifier = Modifier.weight(1f).height(50.dp),

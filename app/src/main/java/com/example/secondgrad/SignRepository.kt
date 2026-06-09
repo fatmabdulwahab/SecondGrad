@@ -1,11 +1,12 @@
 package com.example.secondgrad
 
-
+import java.util.UUID
 
 class SignRepository {
 
-    suspend fun createSession(): CreateSessionResponse {
-        return RetrofitInstance.api.createSession()
+    fun createSession(): CreateSessionResponse {
+        val sessionId = UUID.randomUUID().toString()
+        return CreateSessionResponse(session_id = sessionId)
     }
 
     suspend fun recognize(
@@ -17,6 +18,8 @@ class SignRepository {
     suspend fun endSession(
         sessionId: String
     ) {
-        RetrofitInstance.api.endSession(sessionId)
+        if (sessionId.length > 0) {
+            RetrofitInstance.api.endSession(sessionId)
+        }
     }
 }

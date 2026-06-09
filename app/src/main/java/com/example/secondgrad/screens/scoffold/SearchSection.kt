@@ -118,8 +118,10 @@ fun SearchSection(viewModel: RouteViewModel) {
             CameraTranslationDialog(
                 activity = activity,
                 onDismiss = { isCameraActive = false },
-                onSaveSuccess = {
-                    // الأكشن لما يضغط حفظ
+                onSaveSuccess = { finalWord ->
+                    if (finalWord.length > 0) {
+                        viewModel.onFromTextChange(finalWord)
+                    }
                     isCameraActive = false
                 }
             )
