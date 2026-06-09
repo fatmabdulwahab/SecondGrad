@@ -35,6 +35,7 @@ import com.example.secondgrad.SignViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 @Composable
 fun CameraTranslationDialog(
     activity: ComponentActivity,
@@ -266,17 +267,15 @@ fun CameraTranslationDialog(
                                 ) {
                                     Button(
                                         onClick = {
-                                            scope.launch(Dispatchers.IO) {
+                                            scope.launch {
                                                 try {
-                                                    viewModel.finishSession()
-                                                    scope.launch(Dispatchers.Main) {
-                                                        cameraUiState = CameraUiState.Initial
+                                                    withContext(Dispatchers.IO) {
+                                                        viewModel.finishSession()
                                                     }
+                                                    cameraUiState = CameraUiState.Initial
                                                 } catch (e: Exception) {
                                                     Log.e("CANCEL_SESSION_ERROR", e.message.toString())
-                                                    scope.launch(Dispatchers.Main) {
-                                                        cameraUiState = CameraUiState.Initial
-                                                    }
+                                                    cameraUiState = CameraUiState.Initial
                                                 }
                                             }
                                         },
@@ -289,21 +288,19 @@ fun CameraTranslationDialog(
 
                                     Button(
                                         onClick = {
-                                            scope.launch(Dispatchers.IO) {
+                                            scope.launch {
                                                 try {
-                                                    val finalWord = viewModel.finishSession()
-                                                    scope.launch(Dispatchers.Main) {
-                                                        onSaveSuccess(finalWord)
+                                                    val finalWord = withContext(Dispatchers.IO) {
+                                                        viewModel.finishSession()
                                                     }
+                                                    onSaveSuccess(finalWord)
                                                 } catch (e: Exception) {
                                                     Log.e("END_SESSION_ERROR", e.message.toString())
-                                                    scope.launch(Dispatchers.Main) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            "مش قادرين نحفظ الجلسة",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
+                                                    Toast.makeText(
+                                                        context,
+                                                        "مش قادرين نحفظ الجلسة",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                 }
                                             }
                                         },
