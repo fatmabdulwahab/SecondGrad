@@ -178,14 +178,14 @@ class AuthViewModel : ViewModel() {
     }
 
     private fun isResetSuccessResponse(response: String): Boolean {
-        val normalized = toLowerCaseText(trimAuthText(response))
+        val normalized = toLowerCaseAscii(trimInputText(response))
         return normalized == "success"
-            || normalized.contains("successfully")
-            || normalized.contains("success")
+            || containsText(normalized, "successfully")
+            || containsText(normalized, "success")
     }
 
     private fun mapResetErrorMessage(response: String): String {
-        val normalized = trimAuthText(response)
+        val normalized = trimInputText(response)
         if (normalized == "UserNotFound") {
             return "الإيميل مش موجود"
         }
@@ -199,47 +199,9 @@ class AuthViewModel : ViewModel() {
     }
 
     private fun messageContainsSuccess(message: String): Boolean {
-        val lowerMessage = toLowerCaseText(message)
-        return lowerMessage.contains("registered")
-            || lowerMessage.contains("success")
-            || lowerMessage.contains("تم")
-    }
-
-    private fun trimAuthText(value: String): String {
-        var start = 0
-        var end = value.length
-
-        while (start < end) {
-            val char = value[start]
-            if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-                break
-            }
-            start = start + 1
-        }
-
-        while (end > start) {
-            val char = value[end - 1]
-            if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-                break
-            }
-            end = end - 1
-        }
-
-        return if (start >= end) "" else value.substring(start, end)
-    }
-
-    private fun toLowerCaseText(value: String): String {
-        val builder = StringBuilder()
-        var index = 0
-        while (index < value.length) {
-            val char = value[index]
-            if (char >= 'A' && char <= 'Z') {
-                builder.append((char.code + 32).toChar())
-            } else {
-                builder.append(char)
-            }
-            index = index + 1
-        }
-        return builder.toString()
+        val lowerMessage = toLowerCaseAscii(message)
+        return containsText(lowerMessage, "registered")
+            || containsText(lowerMessage, "success")
+            || containsText(lowerMessage, "تم")
     }
 }

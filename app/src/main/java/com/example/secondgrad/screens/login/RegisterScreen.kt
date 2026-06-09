@@ -50,6 +50,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.secondgrad.AuthViewModel
 import com.example.secondgrad.R
+import com.example.secondgrad.hasInputText
+import com.example.secondgrad.indexOfChar
+import com.example.secondgrad.trimInputText
 
 @Composable
 fun RegisterScreen(
@@ -143,15 +146,15 @@ fun RegisterScreen(
                     onClick = {
                         // التحقق من الحقول
                         emailError = when {
-                            !hasRegisterText(email) -> "email is required"
-                            !hasRegisterChar(email, '@') -> "please include an '@' in the email address"
+                            !hasInputText(email) -> "email is required"
+                            indexOfChar(email, '@') < 0 -> "please include an '@' in the email address"
                             else -> ""
                         }
-                        passwordError = if (!hasRegisterText(password)) "Password is required"
+                        passwordError = if (!hasInputText(password)) "Password is required"
                         else if (password.length < 6) "password must be at least 6 characters" else ""
-                        nameError = if (!hasRegisterText(name)) "name is required" else ""
-                        countryError = if (!hasRegisterText(country)) "country is required" else ""
-                        addressError = if (!hasRegisterText(address)) "address is required" else ""
+                        nameError = if (!hasInputText(name)) "name is required" else ""
+                        countryError = if (!hasInputText(country)) "country is required" else ""
+                        addressError = if (!hasInputText(address)) "address is required" else ""
 
                         if (emailError.length == 0 && passwordError.length == 0 && nameError.length == 0 && countryError.length == 0 && addressError.length == 0) {
                             viewModel.signUp(
@@ -251,29 +254,6 @@ fun CustomInputField(
     }
 }
 
-private fun hasRegisterText(value: String): Boolean {
-    var index = 0
-    while (index < value.length) {
-        val char = value[index]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            return true
-        }
-        index++
-    }
-    return false
-}
-
-private fun hasRegisterChar(value: String, target: Char): Boolean {
-    var index = 0
-    while (index < value.length) {
-        if (value[index] == target) {
-            return true
-        }
-        index++
-    }
-    return false
-}
-
 private fun isRequiredMessage(value: String): Boolean {
     return hasWordAt(value, "required") || hasWordAt(value, "Required")
 }
@@ -303,27 +283,4 @@ private fun hasWordAt(value: String, word: String): Boolean {
     }
 
     return false
-}
-
-private fun trimInputText(value: String): String {
-    var start = 0
-    var end = value.length
-
-    while (start < end) {
-        val char = value[start]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        start = start + 1
-    }
-
-    while (end > start) {
-        val char = value[end - 1]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        end = end - 1
-    }
-
-    return if (start >= end) "" else value.substring(start, end)
 }

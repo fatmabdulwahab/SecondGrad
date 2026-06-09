@@ -43,6 +43,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.secondgrad.AuthViewModel
 import com.example.secondgrad.R
+import com.example.secondgrad.hasInputText
+import com.example.secondgrad.indexOfChar
+import com.example.secondgrad.trimInputText
 
 @Composable
 fun ForgotPasswordScreen(
@@ -189,21 +192,21 @@ fun ForgotPasswordScreen(
                         val trimmedEmail = trimInputText(email)
                         when {
                             !resetCodeSent -> {
-                                if (!hasForgotText(trimmedEmail) || trimmedEmail.indexOf("@") < 0) {
+                                if (!hasInputText(trimmedEmail) || indexOfChar(trimmedEmail, '@') < 0) {
                                     Toast.makeText(context, "اكتبي إيميل صحيح", Toast.LENGTH_SHORT).show()
                                 } else {
                                     viewModel.sendResetCode(trimmedEmail)
                                 }
                             }
                             !resetCodeConfirmed -> {
-                                if (!hasForgotText(code)) {
+                                if (!hasInputText(code)) {
                                     Toast.makeText(context, "اكتبي كود التأكيد", Toast.LENGTH_SHORT).show()
                                 } else {
                                     viewModel.confirmResetCode(trimmedEmail, trimInputText(code))
                                 }
                             }
                             else -> {
-                                if (!hasForgotText(password) || password.length < 6) {
+                                if (!hasInputText(password) || password.length < 6) {
                                     Toast.makeText(context, "كلمة المرور لازم تكون 6 أحرف على الأقل", Toast.LENGTH_SHORT).show()
                                 } else if (password != confirmPassword) {
                                     Toast.makeText(context, "كلمة المرور غير متطابقة", Toast.LENGTH_SHORT).show()
@@ -247,37 +250,3 @@ fun ForgotPasswordScreen(
     }
 }
 
-private fun hasForgotText(value: String): Boolean {
-    var index = 0
-    while (index < value.length) {
-        val char = value[index]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            return true
-        }
-        index = index + 1
-    }
-    return false
-}
-
-private fun trimInputText(value: String): String {
-    var start = 0
-    var end = value.length
-
-    while (start < end) {
-        val char = value[start]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        start = start + 1
-    }
-
-    while (end > start) {
-        val char = value[end - 1]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        end = end - 1
-    }
-
-    return if (start >= end) "" else value.substring(start, end)
-}

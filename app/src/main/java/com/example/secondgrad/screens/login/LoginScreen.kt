@@ -4,6 +4,10 @@ package com.example.secondgrad.screens.login
 import android.widget.Toast
 import com.example.secondgrad.AuthViewModel
 import com.example.secondgrad.R
+import com.example.secondgrad.charAtEnd
+import com.example.secondgrad.hasInputText
+import com.example.secondgrad.indexOfChar
+import com.example.secondgrad.trimInputText
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -267,15 +271,15 @@ fun LoginScreen(
                 Button(
                     onClick = {
                         emailError = when {
-                            !hasLoginText(email) -> "email is required"
-                            !hasLoginChar(email, '@') -> "Please include '@' in the email."
-                            endsWithLoginChar(email, '@') ->
+                            !hasInputText(email) -> "email is required"
+                            indexOfChar(email, '@') < 0 -> "Please include '@' in the email."
+                            charAtEnd(email) == '@' ->
                                 "Please enter a part following '@'. '$email' is incomplete."
                             else -> ""
                         }
 
                         passwordError = when {
-                            !hasLoginText(password) -> "password is required"
+                            !hasInputText(password) -> "password is required"
                             password.length < 6 -> "password is invalid"
                             else -> ""
                         }
@@ -330,57 +334,4 @@ fun LoginScreen(
             }
         }
     }
-}
-
-private fun hasLoginText(value: String): Boolean {
-    var index = 0
-    while (index < value.length) {
-        val char = value[index]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            return true
-        }
-        index++
-    }
-    return false
-}
-
-private fun hasLoginChar(value: String, target: Char): Boolean {
-    var index = 0
-    while (index < value.length) {
-        if (value[index] == target) {
-            return true
-        }
-        index++
-    }
-    return false
-}
-
-private fun endsWithLoginChar(value: String, target: Char): Boolean {
-    if (value.length == 0) {
-        return false
-    }
-    return value[value.length - 1] == target
-}
-
-private fun trimInputText(value: String): String {
-    var start = 0
-    var end = value.length
-
-    while (start < end) {
-        val char = value[start]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        start = start + 1
-    }
-
-    while (end > start) {
-        val char = value[end - 1]
-        if (char != ' ' && char != '\n' && char != '\t' && char != '\r') {
-            break
-        }
-        end = end - 1
-    }
-
-    return if (start >= end) "" else value.substring(start, end)
 }
