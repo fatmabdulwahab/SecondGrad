@@ -85,15 +85,20 @@ interface TransGuideApi {
         @Body request: UpdatePasswordRequest
     ): ApiMessageResponse
 
-    @POST("api/Auth/forgot-password")
-    suspend fun forgotPassword(
+    @POST("api/Auth/send-reset-code")
+    suspend fun sendResetCode(
         @Body request: EmailRequest
-    ): ApiMessageResponse
+    ): okhttp3.ResponseBody
 
-    @POST("api/Auth/verify-reset-code")
-    suspend fun verifyResetCode(
+    @POST("api/Auth/confirm-reset-code")
+    suspend fun confirmResetCode(
         @Body request: VerifyResetCodeRequest
-    ): ApiMessageResponse
+    ): okhttp3.ResponseBody
+
+    @POST("api/Auth/reset-password")
+    suspend fun resetPassword(
+        @Body request: ResetPasswordRequest
+    ): okhttp3.ResponseBody
 
     @GET("api/Auth/UsersCount")
     suspend fun getUsersCount(): JsonElement

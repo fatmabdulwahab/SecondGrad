@@ -62,8 +62,15 @@ data class VerifyResetCodeRequest(
     val code: String
 )
 
+data class ResetPasswordRequest(
+    val email: String,
+    val password: String,
+    val confirmPassword: String
+)
+
 data class AuthResponse(
     val token: String? = null,
+    val userId: Int? = null,
     val email: String? = null,
     val fullName: String? = null,
     val message: String? = null

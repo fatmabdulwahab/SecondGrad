@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 
+import com.example.secondgrad.screens.login.ForgotPasswordScreen
 import com.example.secondgrad.screens.login.LoginScreen
 import com.example.secondgrad.screens.login.RegisterScreen
 import com.example.secondgrad.screens.login.SplashScreen
@@ -34,7 +35,10 @@ fun NavigationGraph(navController: NavHostController){
 
         composable("register") {
             RegisterScreen(navController)
+        }
 
+        composable("forgot_password") {
+            ForgotPasswordScreen(navController)
         }
 
         composable("home") {
