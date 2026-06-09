@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
@@ -31,7 +32,20 @@ class HandLandmarkerHelper(
         return false
     }
 
-    fun getHandLandmarker(): HandLandmarker? = handLandmarker
+    fun detectHands(mpImage: MPImage): HandLandmarkerResult? {
+        val landmarker = handLandmarker ?: return null
+
+        return try {
+            landmarker.detect(mpImage, ImageProcessingOptions.builder().build())
+        } catch (throwable: Throwable) {
+            Log.e("HAND_DETECT", throwable.message.toString())
+            null
+        }
+    }
+
+    fun isReady(): Boolean {
+        return handLandmarker != null
+    }
 
     fun close() {
         try {
@@ -90,15 +104,15 @@ class HandLandmarkerHelper(
     private fun buildLandmarkerOptions(baseOptions: BaseOptions): HandLandmarker.HandLandmarkerOptions {
         return HandLandmarker.HandLandmarkerOptions.builder()
             .setBaseOptions(baseOptions)
-            .setRunningMode(RunningMode.LIVE_STREAM)
-            .setResultListener(this::onResult)
-            .setErrorListener { error ->
-                Log.e("HAND_ERROR", error.message.toString())
-            }
+            .setRunningMode(RunningMode.IMAGE)
+            .setNumHands(1)
+            .setMinHandDetectionConfidence(0.35f)
+            .setMinHandPresenceConfidence(0.35f)
+            .setMinTrackingConfidence(0.35f)
             .build()
     }
 
-    private fun onResult(result: HandLandmarkerResult, inputImage: MPImage) {
+    fun publishLandmarks(result: HandLandmarkerResult) {
         if (result.landmarks().size == 0) {
             return
         }

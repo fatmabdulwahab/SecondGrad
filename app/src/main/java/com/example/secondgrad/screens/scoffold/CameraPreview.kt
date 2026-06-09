@@ -9,50 +9,66 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.secondgrad.SignViewModel
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
     activity: ComponentActivity,
     signViewModel: SignViewModel,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    onHandModelStatus: (Boolean) -> Unit = {}
 ) {
-
     val cameraExecutor = remember {
         Executors.newSingleThreadExecutor()
     }
-    val isHandReady = remember { mutableStateOf(false) }
+    var isCameraBound by remember { mutableStateOf(false) }
+    var isHandReady by remember { mutableStateOf(false) }
+    var cameraBindError by remember { mutableStateOf<String?>(null) }
 
     val handLandmarkerHelper = remember(signViewModel) {
         HandLandmarkerHelper(
             context = activity,
             onLandmarksDetected = { landmarks ->
-
-                Log.d("TEST_FLOW", "before viewModel call")
-
                 signViewModel.recognize(landmarks)
-
-                Log.d("TEST_FLOW", "after viewModel call")
             }
         )
     }
 
-
     LaunchedEffect(Unit) {
-        val isReady = handLandmarkerHelper.setupHandLandmarker()
-        isHandReady.value = isReady
-        if (!isReady) {
-            onError("تعذر تحميل ملف hand_landmarker.task. اعملي Clean ثم Rebuild للمشروع")
+        val ready = withContext(Dispatchers.IO) {
+            HandModelProvider.ensureModelFile(activity)
+            handLandmarkerHelper.setupHandLandmarker()
+        }
+        isHandReady = ready
+        onHandModelStatus(ready)
+    }
+
+    LaunchedEffect(cameraBindError) {
+        val message = cameraBindError
+        if (message != null) {
+            onError(message)
         }
     }
 
@@ -63,96 +79,119 @@ fun CameraPreview(
         }
     }
 
-    if (!isHandReady.value) {
-        return
-    }
-
-    AndroidView(
-        factory = { ctx ->
-
-            val previewView = PreviewView(ctx)
-
-            val cameraProviderFuture =
-                ProcessCameraProvider.getInstance(ctx)
-
-            cameraProviderFuture.addListener({
-
-                try {
-                    val cameraProvider =
-                        cameraProviderFuture.get()
-
-                    val preview =
-                        Preview.Builder().build()
-
-                    val imageAnalysis =
-                        ImageAnalysis.Builder()
-                            .setBackpressureStrategy(
-                                ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-                            )
-                            .build()
-
-                    imageAnalysis.setAnalyzer(
-                        cameraExecutor
-                    ) { imageProxy ->
-                        try {
-                            val handLandmarker = handLandmarkerHelper.getHandLandmarker()
-                            if (handLandmarker == null) {
-                                return@setAnalyzer
-                            }
-
-                            val bitmap =
-                                imageProxy.toBitmap()
-
-                            val mpImage =
-                                BitmapImageBuilder(bitmap).build()
-
-                            val frameTime =
-                                System.currentTimeMillis()
-
-                            handLandmarker.detectAsync(
-                                mpImage,
-                                frameTime
-                            )
-                        } catch (throwable: Throwable) {
-                            Log.e("CAMERA_ANALYZER_ERROR", throwable.message.toString())
-                        } finally {
-                            imageProxy.close()
-                        }
-                    }
-
-                    val cameraSelector =
-                        CameraSelector.DEFAULT_BACK_CAMERA
-
-                    preview.setSurfaceProvider(
-                        previewView.surfaceProvider
-                    )
-
-                    if (
-                        ActivityCompat.checkSelfPermission(
-                            ctx,
-                            Manifest.permission.CAMERA
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        onError("اسمحي بصلاحية الكاميرا الأول")
-                        return@addListener
-                    }
-
-                    cameraProvider.unbindAll()
-
-                    cameraProvider.bindToLifecycle(
-                        activity,
-                        cameraSelector,
-                        preview,
-                        imageAnalysis
-                    )
-                } catch (throwable: Throwable) {
-                    Log.e("CAMERA_BIND_ERROR", throwable.message.toString())
-                    onError("مش قادرين نشغل الكاميرا على الجهاز ده")
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B141A))
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
 
-            }, ContextCompat.getMainExecutor(ctx))
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                cameraProviderFuture.addListener({
+                    try {
+                        if (
+                            ActivityCompat.checkSelfPermission(
+                                ctx,
+                                Manifest.permission.CAMERA
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            cameraBindError = "اسمحي بصلاحية الكاميرا الأول"
+                            return@addListener
+                        }
 
-            previewView
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = Preview.Builder().build()
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .build()
+
+                        imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                            try {
+                                if (handLandmarkerHelper.isReady()) {
+                                    val bitmap = imageProxy.toBitmap()
+                                    val mpImage = BitmapImageBuilder(bitmap).build()
+                                    val result = handLandmarkerHelper.detectHands(mpImage)
+                                    if (result != null) {
+                                        handLandmarkerHelper.publishLandmarks(result)
+                                    }
+                                }
+                            } catch (throwable: Throwable) {
+                                Log.e("CAMERA_ANALYZER_ERROR", throwable.message.toString())
+                            } finally {
+                                imageProxy.close()
+                            }
+                        }
+
+                        preview.setSurfaceProvider(previewView.surfaceProvider)
+                        cameraProvider.unbindAll()
+
+                        val selectors = arrayOf(
+                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            CameraSelector.DEFAULT_BACK_CAMERA
+                        )
+
+                        var bound = false
+                        var selectorIndex = 0
+                        while (selectorIndex < selectors.size && !bound) {
+                            try {
+                                cameraProvider.bindToLifecycle(
+                                    activity,
+                                    selectors[selectorIndex],
+                                    preview,
+                                    imageAnalysis
+                                )
+                                bound = true
+                                isCameraBound = true
+                            } catch (bindError: Throwable) {
+                                Log.e(
+                                    "CAMERA_BIND_ERROR",
+                                    "${selectors[selectorIndex]}: ${bindError.message}"
+                                )
+                            }
+                            selectorIndex = selectorIndex + 1
+                        }
+
+                        if (!bound) {
+                            cameraBindError = "مش قادرين نشغل الكاميرا على الجهاز ده"
+                        }
+                    } catch (throwable: Throwable) {
+                        Log.e("CAMERA_BIND_ERROR", throwable.message.toString())
+                        cameraBindError = "مش قادرين نشغل الكاميرا على الجهاز ده"
+                    }
+                }, ContextCompat.getMainExecutor(ctx))
+
+                previewView
+            }
+        )
+
+        if (!isCameraBound) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
+            }
         }
-    )
+
+        if (!isHandReady && isCameraBound) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0x88000000)),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                Text(
+                    text = "الكاميرا شغالة — جاري تجهيز التعرف على الإشارة...",
+                    color = Color.White,
+                    modifier = Modifier.background(Color(0xCC000000))
+                )
+            }
+        }
+    }
 }

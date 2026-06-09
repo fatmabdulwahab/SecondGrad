@@ -66,16 +66,6 @@ fun CameraTranslationDialog(
 
     fun startCameraSession() {
         scope.launch {
-            if (!hasHandModelAsset()) {
-                Toast.makeText(
-                    context,
-                    "ملف hand_landmarker.task مش موجود في التطبيق. اعملي Build > Clean ثم Rebuild",
-                    Toast.LENGTH_LONG
-                ).show()
-                cameraUiState = CameraUiState.Initial
-                return@launch
-            }
-
             cameraUiState = CameraUiState.CreatingSession
 
             val isSessionCreated = viewModel.createSessionForCamera()
@@ -85,10 +75,18 @@ fun CameraTranslationDialog(
             }
 
             cameraUiState = CameraUiState.ConnectingServer
-            delay(400)
+            delay(300)
+
+            if (!hasHandModelAsset()) {
+                Toast.makeText(
+                    context,
+                    "ملف التعرف على الإشارة مش موجود — الكاميرا هتفتح لكن الترجمة ممكن ما تشتغلش",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
 
             cameraUiState = CameraUiState.StartingCamera
-            delay(400)
+            delay(300)
 
             cameraUiState = CameraUiState.Ready
         }
@@ -114,7 +112,9 @@ fun CameraTranslationDialog(
         if (message != null) {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearError()
-            cameraUiState = CameraUiState.Initial
+            if (message.indexOf("صلاحية الكاميرا") >= 0 || message.indexOf("نشغل الكاميرا") >= 0) {
+                cameraUiState = CameraUiState.Initial
+            }
         }
     }
 
@@ -191,6 +191,15 @@ fun CameraTranslationDialog(
                                     signViewModel = viewModel,
                                     onError = { message ->
                                         viewModel.setCameraError(message)
+                                    },
+                                    onHandModelStatus = { isReady ->
+                                        if (!isReady) {
+                                            Toast.makeText(
+                                                context,
+                                                "الكاميرا شغالة، لكن ملف التعرف على الإشارة محتاج Rebuild للمشروع",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
                                     }
                                 )
                             }
