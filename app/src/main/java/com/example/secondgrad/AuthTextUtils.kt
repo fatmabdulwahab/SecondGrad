@@ -115,6 +115,13 @@ fun hasInputText(value: String): Boolean {
     return false
 }
 
+fun endsWithText(value: String, suffix: String): Boolean {
+    if (suffix.length == 0 || value.length < suffix.length) {
+        return false
+    }
+    return substringText(value, value.length - suffix.length, value.length) == suffix
+}
+
 fun charAtEnd(value: String): Char? {
     if (value.length == 0) {
         return null

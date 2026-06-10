@@ -27,28 +27,72 @@ class SignRepository {
         return RetrofitInstance.api.recognize(request)
     }
 
-    fun endSession(
-        sessionId: String
-    ) {
+    fun endSession(sessionId: String): EndSessionResult {
         if (sessionId.length == 0) {
-            return
+            return EndSessionResult(message = "No active session")
         }
 
-        var endedOnTransGuide = false
+        endHfSession(sessionId)
+        return endTransGuideSession(sessionId)
+    }
 
+    private fun endHfSession(sessionId: String) {
         try {
+            val request = Request.Builder()
+                .url("$HF_BASE_URL/api/v1/session/$sessionId")
+                .delete()
+                .build()
+
+            httpClient.newCall(request).execute().close()
+        } catch (throwable: Throwable) {
+            // HF session cleanup is best-effort.
+        }
+    }
+
+    private fun endTransGuideSession(sessionId: String): EndSessionResult {
+        return try {
             val request = Request.Builder()
                 .url("$TRANSGUIDE_BASE_URL/api/Sign/end/$sessionId")
                 .post(ByteArray(0).toRequestBody(null))
                 .build()
 
             val response = httpClient.newCall(request).execute()
-            endedOnTransGuide = response.isSuccessful
+            val responseBody = response.body?.string() ?: ""
             response.close()
-        } catch (throwable: Throwable) {
-            endedOnTransGuide = false
-        }
 
+            if (!response.isSuccessful) {
+                return EndSessionResult(
+                    success = false,
+                    message = "Failed to end session (${response.code})",
+                    sessionId = sessionId
+                )
+            }
+
+            parseEndSessionResponse(responseBody, sessionId)
+        } catch (throwable: Throwable) {
+            EndSessionResult(
+                success = false,
+                message = throwable.message ?: "Failed to end session",
+                sessionId = sessionId
+            )
+        }
+    }
+
+    private fun parseEndSessionResponse(body: String, fallbackSessionId: String): EndSessionResult {
+        return try {
+            val root = JSONObject(body)
+            EndSessionResult(
+                success = root.optBoolean("success", true),
+                message = root.optString("message", root.optString("detail", "Session ended")),
+                sessionId = root.optString("sessionId", fallbackSessionId)
+            )
+        } catch (throwable: Throwable) {
+            EndSessionResult(
+                success = true,
+                message = if (body.length > 0) body else "Session ended",
+                sessionId = fallbackSessionId
+            )
+        }
     }
 
     private fun requestTransGuideSession(): CreateSessionResponse {
@@ -90,6 +134,8 @@ class SignRepository {
 
     companion object {
         private const val TRANSGUIDE_BASE_URL = "https://transguideapi.runasp.net"
+        private const val HF_BASE_URL =
+            "https://amr-yasserr-arsl-fingerspelling-detector.hf.space"
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

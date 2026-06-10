@@ -375,12 +375,17 @@ fun CameraTranslationDialog(
                                         onClick = {
                                             viewModel.saveSession(
                                                 onSuccess = { finalWord ->
-                                                    onSaveSuccess(finalWord)
-                                                },
-                                                onError = {
                                                     Toast.makeText(
                                                         context,
-                                                        "مش قادرين نحفظ الجلسة",
+                                                        "تم حفظ الكلمة: $finalWord",
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                    onSaveSuccess(finalWord)
+                                                },
+                                                onError = { message ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        message,
                                                         Toast.LENGTH_SHORT
                                                     ).show()
                                                 }

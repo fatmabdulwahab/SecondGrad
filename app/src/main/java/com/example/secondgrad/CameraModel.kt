@@ -15,6 +15,22 @@ data class RecognizeResponse(
     val status: String,
     val current_word: String?,
     val nlp_result: String?
+) {
+    fun resolvedAccumulatedWord(): String {
+        if (current_word != null && current_word.length > 0 && current_word != "null") {
+            return current_word
+        }
+        if (nlp_result != null && nlp_result.length > 0 && nlp_result != "null") {
+            return nlp_result
+        }
+        return ""
+    }
+}
+
+data class EndSessionResult(
+    val success: Boolean = false,
+    val message: String = "",
+    val sessionId: String = ""
 )
 
 data class CreateSessionResponse(
