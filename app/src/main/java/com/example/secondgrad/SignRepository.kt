@@ -133,7 +133,8 @@ class SignRepository {
     }
 
     companion object {
-        private const val TRANSGUIDE_BASE_URL = "https://transguideapi.runasp.net"
+        private const val TRANSGUIDE_BASE_URL =
+            "https://transguideapi.runasp.net"
         private const val HF_BASE_URL =
             "https://amr-yasserr-arsl-fingerspelling-detector.hf.space"
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()

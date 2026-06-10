@@ -3,6 +3,7 @@ package com.example.secondgrad.screens.login
 
 import android.widget.Toast
 import com.example.secondgrad.AuthViewModel
+import com.example.secondgrad.isNetworkAvailable
 import com.example.secondgrad.R
 import com.example.secondgrad.charAtEnd
 import com.example.secondgrad.hasInputText

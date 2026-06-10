@@ -47,7 +47,10 @@ class AuthViewModel : ViewModel() {
                     _authMessage.value = response.message ?: "بيانات الدخول غير صحيحة"
                 }
             } catch (throwable: Throwable) {
-                _authMessage.value = throwable.localizedMessage ?: "حصل خطأ في تسجيل الدخول"
+                _authMessage.value = mapNetworkErrorMessage(
+                    throwable,
+                    "حصل خطأ في تسجيل الدخول"
+                )
             }
 
             _isLoading.value = false
@@ -85,7 +88,10 @@ class AuthViewModel : ViewModel() {
                     _authMessage.value = if (message.length > 0) message else "مش قادرين نسجل الحساب"
                 }
             } catch (throwable: Throwable) {
-                _authMessage.value = throwable.localizedMessage ?: "حصل خطأ في إنشاء الحساب"
+                _authMessage.value = mapNetworkErrorMessage(
+                    throwable,
+                    "حصل خطأ في إنشاء الحساب"
+                )
             }
 
             _isLoading.value = false

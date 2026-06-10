@@ -4,7 +4,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitInstanceSearch {
-    private const val BASE_URL = "https://transguideapi.runasp.net/"
+    private const val BASE_URL = ApiConfig.TRANSGUIDE_BASE_URL
 
     private val retrofit: Retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
