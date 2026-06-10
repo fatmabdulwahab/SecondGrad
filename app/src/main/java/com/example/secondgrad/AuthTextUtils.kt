@@ -88,16 +88,25 @@ fun containsText(value: String, search: String): Boolean {
     return indexOfText(value, search) >= 0
 }
 
+private const val ASCII_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+private const val ASCII_LOWER = "abcdefghijklmnopqrstuvwxyz"
+
+fun toLowerAsciiChar(char: Char): Char {
+    var index = 0
+    while (index < ASCII_UPPER.length) {
+        if (ASCII_UPPER[index] == char) {
+            return ASCII_LOWER[index]
+        }
+        index = index + 1
+    }
+    return char
+}
+
 fun toLowerCaseAscii(value: String): String {
     val builder = StringBuilder()
     var index = 0
     while (index < value.length) {
-        val char = value[index]
-        if (char >= 'A' && char <= 'Z') {
-            builder.append((char.code + 32).toChar())
-        } else {
-            builder.append(char)
-        }
+        builder.append(toLowerAsciiChar(value[index]))
         index = index + 1
     }
     return builder.toString()

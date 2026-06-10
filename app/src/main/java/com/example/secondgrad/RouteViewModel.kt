@@ -512,11 +512,7 @@ class RouteViewModel : ViewModel() {
                 index = index + 1
                 continue
             }
-            if (char >= 'A' && char <= 'Z') {
-                builder.append((char.code + 32).toChar())
-            } else {
-                builder.append(char)
-            }
+            builder.append(toLowerAsciiChar(char))
             index = index + 1
         }
         return builder.toString()
@@ -536,7 +532,13 @@ class RouteViewModel : ViewModel() {
         if (char == '\u0640') {
             return true
         }
-        val code = char.code
-        return code in 0x064B..0x065F || code == 0x0670
+        return char == '\u064B' || char == '\u064C' || char == '\u064D' ||
+            char == '\u064E' || char == '\u064F' || char == '\u0650' ||
+            char == '\u0651' || char == '\u0652' || char == '\u0653' ||
+            char == '\u0654' || char == '\u0655' || char == '\u0656' ||
+            char == '\u0657' || char == '\u0658' || char == '\u0659' ||
+            char == '\u065A' || char == '\u065B' || char == '\u065C' ||
+            char == '\u065D' || char == '\u065E' || char == '\u065F' ||
+            char == '\u0670'
     }
 }
